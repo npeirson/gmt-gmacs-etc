@@ -122,10 +122,3 @@ Ok soldier listen up! Here's the query map!
 ```
 Clearly, then, wavelength is of the uppermost importance, followed by several other basic types.
 
-TODO:
- [ ] update dichroic transition wavelength
- [ ] update telescope throughput
- [ ] add fiber transmission option
- [ ] update grating options and efficiencies
- [ ] update sky background wavelength coverage
- [ ] update optics throughput values
