@@ -63,7 +63,6 @@ class bork:
 		self.counts = np.divide(get_power(),np.divide((self.hc),get_wavelength())) # cuz these are the same
 		return self.counts
 
-	# sky land (it's a mario reference)
 	def get_sky_counts_noise(self):
 		self.old_res = self.sky_x[1] - self.sky_x[0]										# i think i used to have a voice
 		self.sky_sigma = np.divide(self.delta_lambda,self.fwhm)								# now i never make a sound
@@ -92,7 +91,7 @@ class bork:
 		self.integral2,_error = integrate.quad(self.funx,-self.seeing_extrema,self.seeing_extrema)
 		self.percent = np.dot(self.integral1,self.integral2)
 
-# dichroic transmission
+	# dichroic transmission
 	def get_dichro(self):
 		if (self.colors == 0 or self.colors == 2):#### THIS IS WORNG STUFF BELOW@#####
 			self.dichro_red = interpolate.PchipInterpolator(_dichro_x,_dichro_y1)(self.wavelength)
