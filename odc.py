@@ -10,7 +10,6 @@
 '''
 import os
 import time
-import h5py
 import numpy as np
 import pandas as pd
 from astropy import units as u
@@ -61,14 +60,17 @@ for i,coalesced_galaxy_type in tqdm(enumerate(coalesced_galaxy_types),desc='Shap
 	coalesced_object_x[i] = coalesced_galaxy_types[i].a
 	coalesced_object_y[i] = coalesced_galaxy_types[i].b
 
+''' calculate flux '''
+
+
+
 ''' dump re-shaped data to file '''
 gdata = [coalesced_object_x,coalesced_object_y,coalesced_star_types,coalesced_filters,coalesced_sky_files,
 		coalesced_grating_files,coalesced_ccd_files,coalesced_dichroic_files,coalesced_atmo_ext_files,grating_red_1,
 		grating_red_2,grating_blue_1,grating_blue_2,ccd_efficiency_red_1,ccd_efficiency_red_2,ccd_efficiency_blue_1,
-		ccd_efficiency_blue_2]	
-fileout = h5py.File('data.h5','w')
-fileout.create_dataset('etc_data',data=gdata)
-fileout.close
+		ccd_efficiency_blue_2]
+np.savez('gmacs_etc',[dat for dat in gdata])
+
 
 ''' afterword '''
 print('\n[Success!] Build completed in {} seconds.'.format(str(time.time()-time_start)))
