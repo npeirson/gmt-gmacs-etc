@@ -142,6 +142,7 @@ p6 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_heig
 			x_axis_label=dfs.string_axis_labels[6][0],y_axis_label=dfs.string_axis_labels[6][1])
 p7 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
 			x_axis_label=dfs.string_axis_labels[7][0],y_axis_label=dfs.string_axis_labels[7][1],x_range=ranges.Range1d(start=dfs.default_start_wavelength, end=dfs.default_stop_wavelength))
+figures = [p0,p1,p2,p3,p4,p5,p6,p7]
 
 # assemble graph tabs
 tab0 = Panel(child=p0,title=dfs.string_calculate_types[0])
@@ -154,23 +155,50 @@ tab6 = Panel(child=p6,title=dfs.string_calculate_types[6])
 tab7 = Panel(child=p7,title=dfs.string_calculate_types[7].title())
 tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7]) # string_title[10]
 
+# observed sky background
+
+
+# dichroic throughput
+cds_dichroic_red = ColumnDataSource(dict(xr=dichro_x,yr=dichro_y1))
+cds_dichroic_blue = ColumnDataSource(dict(xb=dichro_x,yb=dichro_y2))
+gly_dichroic_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
+gly_dichroic_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
+p4.add_glyph(cds_dichroic_red,gly_dichroic_red)
+p4.add_glyph(cds_dichroic_blue,gly_dichroic_blue)
+
+# dichroic throughput
+cds_dichroic_red = ColumnDataSource(dict(xr=dichro_x,yr=dichro_y1))
+cds_dichroic_blue = ColumnDataSource(dict(xb=dichro_x,yb=dichro_y2))
+gly_dichroic_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
+gly_dichroic_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
+p4.add_glyph(cds_dichroic_red,gly_dichroic_red)
+p4.add_glyph(cds_dichroic_blue,gly_dichroic_blue)
+
+# grating throughput
+cds_grating_red = ColumnDataSource(dict(xr=grating_red_1,yr=grating_red_2))
+cds_grating_blue = ColumnDataSource(dict(xb=grating_blue_1,yb=grating_blue_2))
+gly_grating_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
+gly_grating_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
+p5.add_glyph(cds_grating_red,gly_grating_red)
+p5.add_glyph(cds_grating_blue,gly_grating_blue)
 
 # ccd efficiency
 cds_ccd_red = ColumnDataSource(dict(xr=ccd_efficiency_red_1,yr=ccd_efficiency_red_2))
 cds_ccd_blue = ColumnDataSource(dict(xb=ccd_efficiency_blue_1,yb=ccd_efficiency_blue_2))
-gly_ccd_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width)
-gly_ccd_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width)
+gly_ccd_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
+gly_ccd_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
 p6.add_glyph(cds_ccd_red,gly_ccd_red)
 p6.add_glyph(cds_ccd_blue,gly_ccd_blue)
 
 # atmospheric extinction
 cds_atmo_ext = ColumnDataSource(dict(x=atmo_ext_x, y=atmo_ext_y))
-gly_atmo_ext = glyphs.Line(x="x",y="y",line_width=dfs.default_line_width)
+gly_atmo_ext = glyphs.Line(x="x",y="y",line_width=dfs.default_line_width,line_color=dfs.default_line_color_else)
 p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 
 
 ''' maybe callbacks go here '''
-cb_wavelength = CustomJS(args=dict(fig=p7,slider_wavelengths=widget_wavelengths,slider_plotstep=widget_plot_step,wavelength=wavelength),code="""
+cb_wavelength = CustomJS(args=dict(p0=p0,p1=p1,p2=p2,p3=p3,p4=p4,p5=p5,p6=p6,p7=p7,
+	slider_wavelengths=widget_wavelengths,slider_plotstep=widget_plot_step,wavelength=wavelength),code="""
 	const [a,o] = slider_wavelengths.value;
 	var [start,edge] = [a,o];
 	var step = slider_plotstep.value;
@@ -189,24 +217,42 @@ cb_wavelength = CustomJS(args=dict(fig=p7,slider_wavelengths=widget_wavelengths,
 	ret.push(start);
 	}
 	wavelength = ret;
-	fig.x_range.start = a;
-	fig.x_range.end = o;
-	console.log(fig.x_range.start);
-	console.log(fig.x_range.end);
-	fig.x_range.change.emit();
+
+	p0.x_range.start = a;
+	p0.x_range.end = o;
+	p0.x_range.change.emit();
+
+	p1.x_range.start = a;
+	p1.x_range.end = o;
+	p1.x_range.change.emit();
+
+	p2.x_range.start = a;
+	p2.x_range.end = o;
+	p2.x_range.change.emit();
+
+	p3.x_range.start = a;
+	p3.x_range.end = o;
+	p3.x_range.change.emit();
+
+	p4.x_range.start = a;
+	p4.x_range.end = o;
+	p4.x_range.change.emit();
+
+	p5.x_range.start = a;
+	p5.x_range.end = o;
+	p5.x_range.change.emit();
+
+	p6.x_range.start = a;
+	p6.x_range.end = o;
+	p6.x_range.change.emit();
+
+	p7.x_range.start = a;
+	p7.x_range.end = o;
+	p7.x_range.change.emit();
 	""")
 
-widget_wavelengths.
-
-
-
-
-''' non-callback plots (no interactivity) '''
-
-# dichroic throughput
-
-# grating throughput
-
+# linkages
+widget_wavelengths.callback = cb_wavelength
 
 
 # final panel building

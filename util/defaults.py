@@ -82,3 +82,6 @@ default_plot_step=[0.1,0.01,1]
 default_plot_step_step=0.1
 default_wavelength = arange(default_start_wavelength,default_stop_wavelength,default_plot_step_step)
 default_line_width = 2
+default_line_color_red = "red"
+default_line_color_blue = "blue"
+default_line_color_else = "black"
