@@ -52,7 +52,10 @@ coalesced_ccd_files = dparse(cfg.efficiency_path,cfg.efficiency_ccd_files)
 coalesced_dichroic_files = dparse(cfg.dichroic_path,cfg.dichroic_files)
 coalesced_atmo_ext_files = dparse(cfg.atmo_ext_path,cfg.atmo_ext_files)
 
+base_wavelength = np.arange(start=dfs.default_start_wavelength,stop=dfs.default_stop_wavelength,step=dfs.default_plot_step_step)
 wavelength = np.arange(start=dfs.default_start_wavelength,stop=dfs.default_stop_wavelength,step=dfs.default_plot_step_step)
+
+
 # efficiency dots
 grating_red_1 = np.dot(coalesced_grating_files[0]['a'],10)
 grating_red_2 = coalesced_grating_files[0]['b']
@@ -94,22 +97,26 @@ widget_mag_type = RadioButtonGroup(labels=dfs.string_magnitude_three,active=0)
 widget_grating_types = RadioButtonGroup(labels=dfs.string_grating_types, active=0)
 widget_moon_days = RadioButtonGroup(labels=dfs.string_moon_days, active=0) # TODO: need title for this, would be string_title[7]
 widget_binned_pixel_scale_mode = RadioButtonGroup(labels=dfs.string_binned_pixel_scale_modes, active=0)
+widget_binned_pixel_scale = RadioButtonGroup(name=dfs.string_binned_pixel_scale_header, labels=dfs.string_binned_pixel_scale_labels,active=0)
 # dropdown menus
 widget_types_types = Dropdown(label=dfs.string_object_types_types[0],menu=dfs.string_star_types) # TODO: dynamically set these
 widget_filters = Dropdown(label=dfs.string_widget_labels[0],menu=dfs.string_filters_menu,width=100)
 # text input
 widget_mag_input = TextInput(value=dfs.default_magnitude_two,title=dfs.string_suffixes[0].title(),width=75)
 widget_redshift = TextInput(value=str(dfs.default_redshift), title=dfs.string_title[3])
-widget_seeing = TextInput(value=dfs.default_seeing, title=dfs.string_title[5])
-widget_slit_width = TextInput(value=dfs.default_slit_width, title=dfs.string_title[6])
 #widget_binned_pixel_scale = TextInput(value=dfs.default_binned_pixel_scale,title=dfs.string_binned_pixel_scale_manual) # TODO: hide on default
-widget_binned_pixel_scale = RadioButtonGroup(name=dfs.string_binned_pixel_scale_header, labels=dfs.string_binned_pixel_scale_labels,active=0)
-
 # sliders
 widget_exposure_time = Slider(start=dfs.default_exposure_time_start, end=dfs.default_exposure_time_end,
-	value=dfs.default_exposure_time, step=1, title=dfs.string_title[4])
+	value=dfs.default_exposure_time, step=dfs.default_exposure_time_step, title=dfs.string_title[4])
+widget_seeing = Slider(start=dfs.default_seeing_start,end=dfs.default_seeing_end,
+	value=dfs.default_seeing, step=dfs.default_seeing_step,title=dfs.string_title[5])
+widget_slit_width = Slider(start=dfs.default_slit_width_start,end=dfs.default_slit_width_end,
+	value=dfs.default_slit_width,step=dfs.default_slit_width_step,title=dfs.string_title[6])
+# range sliders
 widget_wavelengths = RangeSlider(start=dfs.default_start_wavelength, end=dfs.default_stop_wavelength,
-	value=(dfs.default_start_wavelength,dfs.default_stop_wavelength), step=1, title=dfs.string_title[8])
+	value=(dfs.default_start_wavelength,dfs.default_stop_wavelength), step=dfs.default_wavelength_step, title=dfs.string_title[8])
+
+
 # other widgets
 widget_header = Div(text='<h1>'+dfs.string_header_one+'</h1><h3>'+dfs.string_header_two+'</h3>',width=500,height=70)
 widget_plot_types = CheckboxButtonGroup(labels=dfs.string_plot_types, active=dfs.default_plot_types) # TODO: make double-off == double-on
@@ -155,9 +162,6 @@ tab6 = Panel(child=p6,title=dfs.string_calculate_types[6])
 tab7 = Panel(child=p7,title=dfs.string_calculate_types[7].title())
 tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7]) # string_title[10]
 
-# observed sky background
-
-
 # dichroic throughput
 cds_dichroic_red = ColumnDataSource(dict(xr=dichro_x,yr=dichro_y1))
 cds_dichroic_blue = ColumnDataSource(dict(xb=dichro_x,yb=dichro_y2))
@@ -196,7 +200,84 @@ gly_atmo_ext = glyphs.Line(x="x",y="y",line_width=dfs.default_line_width,line_co
 p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 
 
-''' maybe callbacks go here '''
+''' JavaScript functions '''
+active_skyfile = []
+cb_skyfiles = CustomJS(args=dict(selected=widget_moon_days,activate=active_skyfile), code="""
+	activate = selected.active
+	""")
+
+resampled_flux = []
+cb_res_spect = CustomJS(args=dict(widget=widget_moon_days,skyfiles=coalesced_sky_files[widget_moon_days.active].to_json(),old_spec=base_wavelength,resampled_flux=resampled_flux),code="""	
+	var new_spec = skyfiles[widget.active][0] * 1000;
+	var spec_flux = skyfiles[widget.active][1] / 1000;
+	var ResSpect,
+	  splice = [].splice;
+
+	Array.prototype.clone = function() {
+	  return this.slice(0);
+	  };
+
+	ResSpect = function(new_spec, old_spec, spec_flux) {
+	  var end_factor, filter_lhs, filter_width, ref, ref1, ref2, ref3, to_reduce, two_reduce, three_reduce, resampled_flux_err, spec_lhs, spec_width, start, start_factor, stop;
+	  spec_lhs = [];
+	  spec_width = [];
+	  filter_lhs = [];
+	  filter_width = [];
+	  spec_lhs[0] = old_spec[0] - (old_spec[1] - old_spec[0]) / 2;
+	  spec_width[-1] = old_spec[-1] - old_spec[-2];
+	  splice.apply(spec_lhs, [1, 0].concat(ref = (old_spec.slice(1, 1) + old_spec.slice(0)) / 2)), ref;
+	  splice.apply(spec_width, [0, 0].concat(ref1 = spec_lhs.slice(1, 1) - spec_lhs.slice(0))), ref1;
+	  filter_lhs[0] = new_spec[0] - (new_spec[-1] - new_spec[0]) / 2;
+	  filter_widths[-1] = new_spec[-1] - new_spec[-2];
+	  filter_lhs[-1] = new_spec[-1] + (new_spec[-1] - new_spec[-2]) / 2;
+	  splice.apply(filter_lhs, [1, -1].concat(ref2 = (new_spec.slice(1, 1) + new_spec.slice(0)) / 2)), ref2;
+	  splice.apply(filter_width, [0, 0].concat(ref3 = filter_lhs.slice(1) - filer_lhs.slice(0, -1))), ref3;
+	  if (filter_lhs[0] < spec_lhs[0] || filter_lhs[-1] > spec_lhs[-1]) {
+	    console.log("ResSpect: The new wavelengths specified must fall within the range of the old wavelength values.");
+	    }
+	  resampled_flux = [];
+	  if (spec_err === !None) {
+	    if (spec_err.shape(!spec_flux.shape)) {
+	      console.log("ResSpect: If specified, spec_err must be the same shape as spec_flux.");
+	    } else {
+	      resampled_flux_err = [];
+	      }
+	  }
+	  start = 0;
+	  stop = 0;
+	  var j;
+	  for (j = 0; j < new_spec.length; j++) {
+	    while (spec_lhs[start+1] <= filter_lhs[j]) {
+	      start++;
+	      }
+	    while (spec_lhs[stop+1] <= filter_lhs[j+1]) {
+	      stop++;
+	      }
+	    if (stop === start) {
+	      resampled_flux[j] = spec_flux[j] && (spec_errs === !None ? resampled_flux_err[j] = spec_errs[start] : void 0);
+	    } else {}        
+	        var thing1 = spec_width.slice(start, +(stop + 1) + 1 || 9e9);
+	        start_factor = (spec_lhs[start + 1] - filter_lhs[j]) / (spec_lhs[start + 1] - spec_lhs[start]) && (end_factor = (filter_lhs[j + 1] - spec_lhs[stop]) / (spec_lhs[stop + 1] - spec_lhs[stop]) && (spec_widths[start] *= start_factor && (spec_widths[stop] *= end_factor && (resampled_flux[j] = (spec_widths.slice(start, (stop + 1)) * spec_flux.slice(start, (stop + 1))) && (samp_sum += resampled_flux[j] && (!(isNaN(spec_err)) ? void 0 : void 0))))));
+	        to_reduce = Math.pow(thing1 * spec_err.slice(start, +(stop + 1) + 1 || 9e9), 2);
+	        two_reduce = (spec_width[start..(stop+1)]);
+	        three_reduce = Math.pow(thing1 * spec_flux.slice(start, +(stop + 1) + 1 || 9e9), 2);
+	        resampled_flux[j] = Math.sqrt(to_reduce.reduceRight((accumulator, currentValue) => accumulator.concat(currentValue)))/three_reduce.reduce((accumulator, currentValue) => accumulator.concat(currentValue));
+	        
+	        if (spec_err == !None) {
+	          resampled_flux_err[j] = Math.sqrt(to_reduce.reduceRight((accumulator, currentValue) => accumulator.concat(currentValue)))/two_reduce.reduce((accumulator, currentValue) => accumulator.concat(currentValue));
+	          }
+	        spec_width[start] /= start_factor;
+	        spec_width[stop] /= end_factor;
+	        }
+	      }
+	  if (spec_err == !None) {
+	    return resampled_flux, resampled_flux_err;
+	  } else {
+	    return resampled_flux;
+	    }
+	  };
+	""")
+
 cb_wavelength = CustomJS(args=dict(p0=p0,p1=p1,p2=p2,p3=p3,p4=p4,p5=p5,p6=p6,p7=p7,
 	slider_wavelengths=widget_wavelengths,slider_plotstep=widget_plot_step,wavelength=wavelength),code="""
 	const [a,o] = slider_wavelengths.value;
@@ -251,8 +332,27 @@ cb_wavelength = CustomJS(args=dict(p0=p0,p1=p1,p2=p2,p3=p3,p4=p4,p5=p5,p6=p6,p7=
 	p7.x_range.change.emit();
 	""")
 
+# observed sky background
+cb_sky = CustomJS(args=dict(grating_opt=widget_grating_types.active,skyfile=coalesced_sky_files[widget_moon_days.active],seeing=widget_seeing.value,slit_size=widget_slit_width.value),code="""
+	if (grating_opt(0)) {
+		delta_lambda_base = 3.73;
+	} else {
+		delta_lambda_base = 1.40;
+	}
+
+	var extension = seeing * slit_size;
+	var sky_x = skyfile[0] * 10000;
+	var sky_y_ = skyfile[1] / 10000;
+	var old_res = sky_x[1] - sky_x[0];
+	
+	var delta_lambda = delta_lambda_base * slit_size / 0.7;
+	var	sigma = delta_lambda / 2.35482;
+
+	""")
+
 # linkages
 widget_wavelengths.callback = cb_wavelength
+widget_moon_days.callback = cb_res_spect
 
 
 # final panel building
