@@ -52,7 +52,7 @@ string_axis_labels = [('x','y'),
 						('x','y'),
 						('x','y'),
 						('x','y'),
-						('Throughput','Angstroms')] # atmospheric extinction
+						('Angstroms','Throughput')] # atmospheric extinction
 
 # widget defaults -- some refer to position in list, some are legit numbers
 default_telescope_sizes = string_telescope_sizes[0]
@@ -60,7 +60,7 @@ default_object_types = 0
 default_star_types = string_star_types[3]
 default_galaxy_types = string_galaxy_types[11]
 default_filters = string_filters[2]
-default_magnitude_two = '25'
+default_magnitude_two = '0'
 default_magnitude_three = string_magnitude_three[1]
 default_grating_types = string_grating_types[0]
 default_redshift = 0.0
@@ -72,10 +72,10 @@ default_seeing = 0.5
 default_seeing_start = 0.1
 default_seeing_end = 1.0
 default_seeing_step = 0.1
-default_slit_width = 0.7
+default_slit_width = 0.75
 default_slit_width_start = 0.1
 default_slit_width_end = 1.0
-default_slit_width_step = 0.1
+default_slit_width_step = 0.05
 default_start_wavelength = 2800
 default_stop_wavelength = 10360
 default_wavelength_step = 1

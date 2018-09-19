@@ -1,2 +1,2 @@
 # bork bork bork
-from core.bork import bork
+from core.session import session
