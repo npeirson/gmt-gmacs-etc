@@ -25,23 +25,22 @@ from bokeh.models.widgets import Dropdown, RadioButtonGroup, CheckboxButtonGroup
 output_file(dfs.string_pagename, title=dfs.site_title, mode='cdn')
 
 '''
-	GMACS: ETC
-		ODC Data Handling
-			this part imports data
-				performs necessary operations
-					and then dies alone like us all
+	GMACS ETC: ODC
+		omni-dimensional creator
+			assuage my confusion about creation
+				and the universe
 
 '''
-print('GMACS ETC: ODC')
+print('Building...')
 time_start = time.time()
 
 # importing
 def dparse(_path,_files):
-	_coalesced_data = {}
+	_coalesced_data = pd.DataFrame()
 	for i,_file in tqdm(enumerate(_files),desc='Loading data',ncols=0):
 		_full = os.path.join(_path,_file)
-		_value = pd.read_csv(_full,delimiter=',')
-		_coalesced_data[i] = _value
+		_value = pd.read_csv(_full,sep=',',header=None,skiprows=1)
+		_coalesced_data = pd.concat([_coalesced_data,_value], axis=1, sort=False, ignore_index=True) # this really is the best way, trust
 	return _coalesced_data
 
 coalesced_galaxy_types = dparse(cfg.galaxy_types_path,cfg.galaxy_types_files)
@@ -56,32 +55,37 @@ coalesced_atmo_ext_files = dparse(cfg.atmo_ext_path,cfg.atmo_ext_files)
 base_wavelength = np.arange(start=dfs.default_start_wavelength,stop=dfs.default_stop_wavelength,step=dfs.default_plot_step_step)
 wavelength = np.arange(start=dfs.default_start_wavelength,stop=dfs.default_stop_wavelength,step=dfs.default_plot_step_step)
 
-
 # efficiency dots
-grating_red_1 = np.dot(coalesced_grating_files[0]['a'],10)
-grating_red_2 = coalesced_grating_files[0]['b']
-grating_blue_1 = np.dot(coalesced_grating_files[1]['a'],10)
-grating_blue_2 = coalesced_grating_files[1]['b']
+grating_red_1 = np.dot(coalesced_grating_files[0],10)
+grating_red_2 = coalesced_grating_files[1]
+grating_blue_1 = np.dot(coalesced_grating_files[2],10)
+grating_blue_2 = coalesced_grating_files[3]
 
-ccd_efficiency_red_1 = np.dot(coalesced_ccd_files[0]['a'],10)
-ccd_efficiency_red_2 = coalesced_ccd_files[0]['b']
-ccd_efficiency_blue_1 = np.dot(coalesced_ccd_files[1]['a'],10)
-ccd_efficiency_blue_2 = coalesced_ccd_files[1]['d'] # data came in like this, idk
+ccd_efficiency_red_1 = np.dot(coalesced_ccd_files[0],10)
+ccd_efficiency_red_2 = coalesced_ccd_files[1]
+ccd_efficiency_blue_1 = np.dot(coalesced_ccd_files[0],10)
+ccd_efficiency_blue_2 = coalesced_ccd_files[5] # data came in like this, idk
 
-dichro_x = np.dot(coalesced_dichroic_files[0]['a'],10) # wavelength in Angstroms
-dichro_y1 = coalesced_dichroic_files[0]['b'] # reflectivity, blue channel
-dichro_y2 = coalesced_dichroic_files[0]['c']
+dichro_x = np.dot(coalesced_dichroic_files[0],10) # wavelength in Angstroms
+dichro_y1 = coalesced_dichroic_files[1] # reflectivity, blue channel
+dichro_y2 = coalesced_dichroic_files[2]
 
-atmo_ext_x = coalesced_atmo_ext_files[0]['a']
-atmo_ext_y = coalesced_atmo_ext_files[0]['b']
+atmo_ext_x = coalesced_atmo_ext_files[0]
+atmo_ext_y = coalesced_atmo_ext_files[1]
 
+'''
 # divide (n,x,y) into {(n,x),(n,y)}
 coalesced_object_x = {}
 coalesced_object_y = {}
 for i,coalesced_galaxy_type in tqdm(enumerate(coalesced_galaxy_types),desc='Shaping data',ncols=0):
 	coalesced_object_x[i] = coalesced_galaxy_types[i].a
 	coalesced_object_y[i] = coalesced_galaxy_types[i].b
+'''
 
+frames = [coalesced_galaxy_types, coalesced_star_types,coalesced_filters,coalesced_sky_files,
+		coalesced_grating_files,coalesced_ccd_files,coalesced_dichroic_files,coalesced_atmo_ext_files]
+pandas_dataframe = pd.concat(frames, axis=1, sort=False) # stacks the columns against each other
+session_dataframe = pd.DataFrame() # placeholder pandaframe for the user's session. improves interaction latency considerably.
 
 '''
 	ODC User Interface
@@ -114,7 +118,7 @@ widget_slit_width = Slider(start=dfs.default_slit_width_start,end=dfs.default_sl
 	value=dfs.default_slit_width,step=dfs.default_slit_width_step,title=dfs.string_title[6])
 # range sliders
 widget_wavelengths = RangeSlider(start=dfs.default_start_wavelength, end=dfs.default_stop_wavelength,
-	value=(dfs.default_start_wavelength,dfs.default_stop_wavelength), step=dfs.default_wavelength_step, title=dfs.string_title[8])
+	value=(dfs.default_start_wavelength+500,dfs.default_stop_wavelength-1000), step=dfs.default_wavelength_step, title=dfs.string_title[8])
 
 
 # other widgets
@@ -163,8 +167,6 @@ tab6 = Panel(child=p6,title=dfs.string_calculate_types[6])
 tab7 = Panel(child=p7,title=dfs.string_calculate_types[7].title())
 tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7]) # string_title[10]
 
-
-
 # dichroic throughput
 cds_dichroic_red = ColumnDataSource(dict(xr=dichro_x,yr=dichro_y1))
 cds_dichroic_blue = ColumnDataSource(dict(xb=dichro_x,yb=dichro_y2))
@@ -196,6 +198,11 @@ p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 
 
 ''' Python functions for conversion to JavaScript '''
+
+coalesced_cb = CustomJS(data=dict(panda=pandas_dataframe,session=session_dataframe),data="""
+	
+	""")
+
 
 def fun_obj_type(active=widget_object_types,widget_gt=widget_galaxy_type,widget_tt=widget_types_types):
 	if (active.active==0): # stars
@@ -230,7 +237,7 @@ widget_galaxy_type.callback = CustomJS.from_py_func(fun_gal_class)
 # final panel building
 widget_group_one = widgetbox(children=[widget_telescope_sizes,widget_object_types,widget_types_types,widget_galaxy_type])
 widget_group_two = layout([[widget_mag_input],[widget_filters,widget_mag_type]])
-widget_group_three = widgetbox(children=[widget_grating_types,widget_redshift,widget_exposure_time,widget_seeing,widget_slit_width,widget_moon_days_header,widget_moon_days,widget_wavelengths,widget_binned_pixel_scale_mode,widget_binned_pixel_scale,widget_plot_types,widget_plot_step])
+widget_group_three = widgetbox(children=[widget_grating_types,widget_redshift,widget_exposure_time,widget_seeing,widget_slit_width,widget_moon_days_header,widget_moon_days,widget_wavelengths,widget_binned_pixel_scale,widget_plot_types]) # removed widget_plot_step and widget_binned_pixel_scale_mode
 widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.default_toolbar_width)
 inputs = row(children=[widgets,tabs],sizing_mode='scale_height')
 l = layout([[widget_header],[inputs]])

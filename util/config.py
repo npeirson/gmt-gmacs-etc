@@ -4,7 +4,8 @@
 	GMACS ETC : Congifuration file
 
 '''
-
+import os
+import pandas as pd
 
 ''' paths '''
 # explicit because have to be sure indices are consistent
@@ -29,3 +30,9 @@ dichroic_path = 'core/'
 dichroic_files = ['dichroic.txt']
 atmo_ext_path = 'core/'
 atmo_ext_files = ['atmo_extinction.dat']
+'''
+pandaframe = pd.DataFrame
+all_paths = [os.path.join(galaxy_types_path,_file) for _file in galaxy_types_files]
+all_data = [pd.read_csv(_file) for 
+print(all_paths)
+'''

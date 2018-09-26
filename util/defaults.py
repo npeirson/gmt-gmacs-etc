@@ -43,7 +43,7 @@ string_binned_pixel_scale_modes = ['Default','Custom']
 string_calculate_types = ['Signal-to-Noise Ratio','Observed Spectrum (without noise)','Observed Spectrum (with noise)','Observed sky background','Dichroic throughput','Grating throughput','CCD QE','Atmospheric extinction']
 string_plot_types = ['Red','Blue']
 string_binned_pixel_scale_header = 'Binned pixel scale'
-string_binned_pixel_scale_labels = ['1x1','2x2']
+string_binned_pixel_scale_labels = ['1x1','2x2','4x4']
 string_plot_step = 'Plot-Step'
 string_axis_labels = [('x','y'),
 						('x','y'),
