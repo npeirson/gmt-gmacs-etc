@@ -11,7 +11,7 @@ import spectres
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from scipy import interpolate # astropy doesn't seem to have pchip integration?
+from spectres import spectres
 from astropy import units as u
 from util import config as cfg
 from util import defaults as dfs
@@ -84,9 +84,9 @@ for i,coalesced_galaxy_type in tqdm(enumerate(coalesced_galaxy_types),desc='Shap
 
 frames = [coalesced_galaxy_types, coalesced_star_types,coalesced_filters,coalesced_sky_files,
 		coalesced_grating_files,coalesced_ccd_files,coalesced_dichroic_files,coalesced_atmo_ext_files]
-
 pandas_dataframe = pd.concat(frames, axis=1, sort=False,ignore_index=True) # stacks the columns against each other
 session_dataframe = ColumnDataSource(data=dict(x=[],y=[]))
+
 
 '''
 	ODC User Interface
@@ -94,40 +94,42 @@ session_dataframe = ColumnDataSource(data=dict(x=[],y=[]))
 
 '''
 # radio button groups
-widget_telescope_sizes = RadioButtonGroup(labels=dfs.string_telescope_sizes, active=0)
-widget_object_types = RadioButtonGroup(labels=dfs.string_object_types, active=dfs.default_object_types)
-widget_galaxy_type = Dropdown(label=dfs.string_object_types_types[1],menu=dfs.string_galaxy_types)
+widget_telescope_sizes = RadioButtonGroup(labels=dfs.string_telescope_sizes, active=0, name=dfs.string_widget_names[0])
+widget_object_types = RadioButtonGroup(labels=dfs.string_object_types, active=dfs.default_object_types, name=dfs.string_widget_names[1])
+widget_galaxy_type = Dropdown(label=dfs.string_object_types_types[1],menu=dfs.string_galaxy_types, name=dfs.string_widget_names[2])
 widget_galaxy_type.disabled = True # change if galaxies default
-widget_mag_type = RadioButtonGroup(labels=dfs.string_magnitude_three,active=0)
-widget_grating_types = RadioButtonGroup(labels=dfs.string_grating_types, active=0)
-widget_moon_days = RadioButtonGroup(labels=dfs.string_moon_days, active=0) # TODO: need title for this, would be string_title[7]
+widget_mag_type = RadioButtonGroup(labels=dfs.string_magnitude_three,active=0, name=dfs.string_widget_names[3])
+widget_grating_types = RadioButtonGroup(labels=dfs.string_grating_types, active=0, name=dfs.string_widget_names[4])
+widget_moon_days = RadioButtonGroup(labels=dfs.string_moon_days, active=0, name=dfs.string_widget_names[5]) # TODO: need title for this, would be string_title[7]
 widget_binned_pixel_scale_mode = RadioButtonGroup(labels=dfs.string_binned_pixel_scale_modes, active=0)
 widget_binned_pixel_scale = RadioButtonGroup(name=dfs.string_binned_pixel_scale_header, labels=dfs.string_binned_pixel_scale_labels,active=0)
-# dropdown menus
-widget_types_types = Dropdown(label=dfs.string_object_types_types[0],menu=dfs.string_star_types) # TODO: dynamically set these
-widget_filters = Dropdown(label=dfs.string_widget_labels[0],menu=dfs.string_filters_menu,width=100)
+# dropdown menus... there's one up there, above, too... could probably move it down here
+widget_types_types = Dropdown(label=dfs.string_object_types_types[0],menu=dfs.string_star_types, name=dfs.string_widget_names[6]) # TODO: dynamically set these
+widget_filters = Dropdown(label=dfs.string_widget_labels[0],menu=dfs.string_filters_menu,width=100, name=dfs.string_widget_names[7])
 # text input
 widget_mag_input = TextInput(value=dfs.default_magnitude_two,title=dfs.string_suffixes[0].title(),width=100)
 widget_redshift = TextInput(value=str(dfs.default_redshift), title=dfs.string_title[3])
 #widget_binned_pixel_scale = TextInput(value=dfs.default_binned_pixel_scale,title=dfs.string_binned_pixel_scale_manual) # TODO: hide on default
 # sliders
 widget_exposure_time = Slider(start=dfs.default_exposure_time_start, end=dfs.default_exposure_time_end,
-	value=dfs.default_exposure_time, step=dfs.default_exposure_time_step, title=dfs.string_title[4])
+	value=dfs.default_exposure_time, step=dfs.default_exposure_time_step, title=dfs.string_title[4], name=dfs.string_widget_names[8])
 widget_seeing = Slider(start=dfs.default_seeing_start,end=dfs.default_seeing_end,
-	value=dfs.default_seeing, step=dfs.default_seeing_step,title=dfs.string_title[5])
+	value=dfs.default_seeing, step=dfs.default_seeing_step,title=dfs.string_title[5], name=dfs.string_widget_names[9])
 widget_slit_width = Slider(start=dfs.default_slit_width_start,end=dfs.default_slit_width_end,
-	value=dfs.default_slit_width,step=dfs.default_slit_width_step,title=dfs.string_title[6])
+	value=dfs.default_slit_width,step=dfs.default_slit_width_step,title=dfs.string_title[6], name=dfs.string_widget_names[10])
 # range sliders
 widget_wavelengths = RangeSlider(start=dfs.default_start_wavelength, end=dfs.default_stop_wavelength,
-	value=(dfs.default_start_wavelength+500,dfs.default_stop_wavelength-1000), step=dfs.default_wavelength_step, title=dfs.string_title[8])
+	value=(dfs.default_start_wavelength+500,dfs.default_stop_wavelength-1000), step=dfs.default_wavelength_step,
+	title=dfs.string_title[8], name=dfs.string_widget_names[11])
 
 
 # other widgets
 widget_header = Div(text='<h1>'+dfs.string_header_one+'</h1><h3>'+dfs.string_header_two+'</h3>',width=500,height=70)
-widget_plot_types = CheckboxButtonGroup(labels=dfs.string_plot_types, active=dfs.default_plot_types) # TODO: make double-off == double-on
+widget_plot_types = CheckboxButtonGroup(labels=dfs.string_plot_types, active=dfs.default_plot_types, name=dfs.string_widget_names[12]) # TODO: make double-off == double-on
 widget_message_box = Paragraph(text='hello')
 widget_plot_step = Slider(start=dfs.default_plot_step[1], end=dfs.default_plot_step[2], value=dfs.default_plot_step[0], step=dfs.default_plot_step_step, title=dfs.string_plot_step)
 widget_moon_days_header = Paragraph(text=dfs.string_title[7])
+
 
 '''
 plot it
@@ -136,8 +138,6 @@ plot it
 - the 'tabs' variable builds the tabs bar and points them toward their respective panels
 
 '''
-
-
 # build figures
 p0 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
 			x_axis_label=dfs.string_axis_labels[0][0],y_axis_label=dfs.string_axis_labels[0][1])
@@ -198,42 +198,58 @@ gly_atmo_ext = glyphs.Line(x="x",y="y",line_width=dfs.default_line_width,line_co
 p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 
 
-''' Python functions for conversion to JavaScript '''
-coalesced_cb = CustomJS(args=dict(pandas_dataframe=pandas_dataframe.to_json(),session=session_dataframe),code="""
-	console.log("[ETC] Call from " + cb_obj.name)
-	""")
+'''
+	Python functions for conversion to JavaScript
+		Remember that none of these functions are run on the page;
+			These functions are only here to be converted to JavaScript,
+				Which are then linked to the widgets as JavaScript callbacks.
+'''
+
+def fun_callback(pandas=pandas_dataframe.to_json(),session=session_dataframe,tabs=tabs,
+				widget_object_types=widget_object_types,widget_galaxy_type=widget_galaxy_type,
+				widget_types_types=widget_types_types,widget_mag_type=widget_mag_type):
+	print('[ETC] Call from ' + cb_obj.name) # for debugging
+	if (tabs.active == 0): # signal-to-noise
+
+		if (cb_obj.name == widget_object_types.name):
+			if (widget_object_types.active == 0):
+				widget_types_types.disabled = False
+				widget_galaxy_type.disabled = True
+				widget_mag_type.disabled = False
+				print('[ETC] Object type: Stars')
+				if (widget_types_types.value != None):
+					print(widget_types_types.value)
+			else:
+				widget_types_types.disabled = True
+				widget_galaxy_type.disabled = False
+				widget_mag_type.disabled = True
+				print('[ETC] Object type: Galaxies')
+
+		elif (cb_obj.name == widget_galaxy_type.name):
+			widget_galaxy_type.label = widget_galaxy_type.menu[widget_galaxy_type.value][0] # trust
+			print('[ETC] Galaxy type: {}'.format(widget_galaxy_type.label))
+
+		elif (cb_obj.name == widget_types_types.name):
+			widget_types_types.label = widget_types_types.value
+			print('[ETC] Star type: {}'.format(widget_types_types.label))
 
 
-def fun_obj_type(active=widget_object_types,widget_gt=widget_galaxy_type,widget_tt=widget_types_types):
-	if (active.active==0): # stars
-		widget_gt.disabled = True
-		widget_tt.disabled = False
-		print('[ETC] Object type: Stars')
-	else: # galaxies
-		widget_tt.disabled = True
-		widget_gt.disabled = False
-		print('[ETC] Object type: Galaxies')
-
-def fun_active_plot(active=tabs):
-	if (active.active==0):
-		print('[ETC] Active tab: {}'.format(active.active))
+	elif (tabs.active == 1): # spec w/o noise
 		pass
-
-def fun_star_class(active=widget_types_types):
-	active.label = active.value
-	print('[ETC] Star type: {}'.format(active.label))
-
-def fun_gal_class(active=widget_galaxy_type):
-	active.label = active.menu[active.value][0]
-	print('[ETC] Galaxy type: {}'.format(active.label))
-
+	elif (tabs.active == 2): # spec w/ noise
+		pass
+	elif (tabs.active == 3): # sky background
+		pass
+	else:
+		print('[ETC] Switched to predefined plot')
 
 # linkages
-widget_object_types.callback = CustomJS.from_py_func(fun_obj_type) # errors here look to line 198
-#tabs.callback = CustomJS.from_py_func(fun_active_plot)
-tabs.callback = coalesced_cb
-widget_types_types.callback = CustomJS.from_py_func(fun_star_class)
-widget_galaxy_type.callback = CustomJS.from_py_func(fun_gal_class)
+coalesced_callback = CustomJS.from_py_func(fun_callback) # only convert to JS once!
+tabs.callback = coalesced_callback
+widget_object_types.callback = coalesced_callback
+widget_types_types.callback = coalesced_callback
+widget_galaxy_type.callback = coalesced_callback
+
 
 # final panel building
 widget_group_one = widgetbox(children=[widget_telescope_sizes,widget_object_types,widget_types_types,widget_galaxy_type])

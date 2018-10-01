@@ -1,5 +1,6 @@
 # Folders
 ignore/
+util/__pycache__/
 
 # Object file
 *.o

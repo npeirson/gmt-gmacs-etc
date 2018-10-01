@@ -16,6 +16,10 @@ string_title = ['Telescope size','Object type','Grating','Redshift','Exposure ti
 	'Slit width (arcseconds)','Days from new moon','Wavelength Range (Angstrom)','Binned pixel scale','Calculate',
 	'Plot','Galaxy Types']
 string_widget_labels = ['Filter']
+string_widget_names = ['telescope sizes','object types','galaxy types','magnitude types',
+						'grating types','moon-day selector','star types','filter types',
+						'exposure time slider','seeing slider','slit width slider',
+						'wavelengths slider','plot types selector']
 string_suffixes = ['magnitude','seconds','arcseconds','Angstrom']
 string_telescope_sizes = ['Full size (7 mirrors)','First light (4 mirrors)']
 string_object_types = ['Stars','Galaxies']
