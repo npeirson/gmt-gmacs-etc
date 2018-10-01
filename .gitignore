@@ -1,8 +1,14 @@
 # Folders
-standalone/
+ignore/
 
 # Object file
 *.o
 
 # Ada Library Information
 *.ali
+
+# HTML
+gmt.css
+pghold.html
+panda_test.html
+etc.html

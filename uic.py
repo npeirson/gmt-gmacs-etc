@@ -84,8 +84,9 @@ for i,coalesced_galaxy_type in tqdm(enumerate(coalesced_galaxy_types),desc='Shap
 
 frames = [coalesced_galaxy_types, coalesced_star_types,coalesced_filters,coalesced_sky_files,
 		coalesced_grating_files,coalesced_ccd_files,coalesced_dichroic_files,coalesced_atmo_ext_files]
-pandas_dataframe = pd.concat(frames, axis=1, sort=False) # stacks the columns against each other
-session_dataframe = pd.DataFrame() # placeholder pandaframe for the user's session. improves interaction latency considerably.
+
+pandas_dataframe = pd.concat(frames, axis=1, sort=False,ignore_index=True) # stacks the columns against each other
+session_dataframe = ColumnDataSource(data=dict(x=[],y=[]))
 
 '''
 	ODC User Interface
@@ -165,7 +166,7 @@ tab4 = Panel(child=p4,title=dfs.string_calculate_types[4].title())
 tab5 = Panel(child=p5,title=dfs.string_calculate_types[5].title())
 tab6 = Panel(child=p6,title=dfs.string_calculate_types[6])
 tab7 = Panel(child=p7,title=dfs.string_calculate_types[7].title())
-tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7]) # string_title[10]
+tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7],name='tabs') # string_title[10]
 
 # dichroic throughput
 cds_dichroic_red = ColumnDataSource(dict(xr=dichro_x,yr=dichro_y1))
@@ -198,9 +199,8 @@ p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 
 
 ''' Python functions for conversion to JavaScript '''
-
-coalesced_cb = CustomJS(data=dict(panda=pandas_dataframe,session=session_dataframe),data="""
-	
+coalesced_cb = CustomJS(args=dict(pandas_dataframe=pandas_dataframe.to_json(),session=session_dataframe),code="""
+	console.log("[ETC] Call from " + cb_obj.name)
 	""")
 
 
@@ -230,7 +230,8 @@ def fun_gal_class(active=widget_galaxy_type):
 
 # linkages
 widget_object_types.callback = CustomJS.from_py_func(fun_obj_type) # errors here look to line 198
-tabs.callback = CustomJS.from_py_func(fun_active_plot)
+#tabs.callback = CustomJS.from_py_func(fun_active_plot)
+tabs.callback = coalesced_cb
 widget_types_types.callback = CustomJS.from_py_func(fun_star_class)
 widget_galaxy_type.callback = CustomJS.from_py_func(fun_gal_class)
 
