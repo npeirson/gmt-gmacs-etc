@@ -37,13 +37,16 @@ time_start = time.time()
 # importing
 def dparse(_path,_files):
 	_coalesced_data = pd.DataFrame()
+	#_coalesced_data = ColumnDataSource()
+	_names = []
 	for i,_file in tqdm(enumerate(_files),desc='Loading data',ncols=0):
 		_full = os.path.join(_path,_file)
 		_value = pd.read_csv(_full,sep=',',header=None,skiprows=1)
+		#_names = np.append(_names,_coalesced_data.add(data=_value,name=_file))
 		_coalesced_data = pd.concat([_coalesced_data,_value], axis=1, sort=False, ignore_index=True) # this really is the best way, trust
 	return _coalesced_data
 
-coalesced_galaxy_types = dparse(cfg.galaxy_types_path,cfg.galaxy_types_files)
+coalesced_galaxy_types = ColumnDataSource().from_df(dparse(cfg.galaxy_types_path,cfg.galaxy_types_files))
 coalesced_star_types = dparse(cfg.star_types_path,cfg.star_types_files)
 coalesced_filters = dparse(cfg.filter_path,cfg.filter_files)
 coalesced_sky_files = dparse(cfg.skyfiles_path,cfg.skyfiles_files)
@@ -82,9 +85,14 @@ for i,coalesced_galaxy_type in tqdm(enumerate(coalesced_galaxy_types),desc='Shap
 	coalesced_object_y[i] = coalesced_galaxy_types[i].b
 '''
 
-frames = [coalesced_galaxy_types, coalesced_star_types,coalesced_filters,coalesced_sky_files,
-		coalesced_grating_files,coalesced_ccd_files,coalesced_dichroic_files,coalesced_atmo_ext_files]
-pandas_dataframe = pd.concat(frames, axis=1, sort=False,ignore_index=True) # stacks the columns against each other
+#frames = [coalesced_galaxy_types, coalesced_star_types,coalesced_filters,coalesced_sky_files,
+#		coalesced_grating_files,coalesced_ccd_files,coalesced_dichroic_files,coalesced_atmo_ext_files]
+#pandas_dataframe = pd.concat(frames, axis=1, sort=False,ignore_index=True) # stacks the columns against each other
+#pandas_dataframe = ColumnDataSource().add(coalesced_galaxy_types,coalesced_star_types)
+#pandas_dataframe = ColumnDataSource()
+#pandas_dataframe = pandas_dataframe.add(data=[frame for frame in frames])
+#pandas_dataframe = ColumnDataSource(pandas_dataframe)
+
 session_dataframe = ColumnDataSource(data=dict(x=[],y=[]))
 
 
@@ -204,8 +212,7 @@ p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 			These functions are only here to be converted to JavaScript,
 				Which are then linked to the widgets as JavaScript callbacks.
 '''
-
-def fun_callback(pandas=pandas_dataframe.to_json(),session=session_dataframe,tabs=tabs,
+def fun_callback(coalesced_galaxy_types=coalesced_galaxy_types,session=session_dataframe,tabs=tabs,
 				widget_object_types=widget_object_types,widget_galaxy_type=widget_galaxy_type,
 				widget_types_types=widget_types_types,widget_mag_type=widget_mag_type):
 	print('[ETC] Call from ' + cb_obj.name) # for debugging
@@ -217,8 +224,8 @@ def fun_callback(pandas=pandas_dataframe.to_json(),session=session_dataframe,tab
 				widget_galaxy_type.disabled = True
 				widget_mag_type.disabled = False
 				print('[ETC] Object type: Stars')
-				if (widget_types_types.value != None):
-					print(widget_types_types.value)
+				if (widget_types_types.value != None): # if something selected previously
+					print(coalesced_galaxy_types)
 			else:
 				widget_types_types.disabled = True
 				widget_galaxy_type.disabled = False
