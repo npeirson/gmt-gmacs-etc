@@ -11,14 +11,14 @@ import pandas as pd
 # explicit because have to be sure indices are consistent
 
 galaxy_types_path = 'core/kinney/'
-galaxy_types_files = ['SB1.txt','SB2.txt','SB3.txt','SB4.txt','SB5.txt','SB6.txt','S0.txt','Sa.txt',
-						'Sb.txt','Sc.txt','bulge.txt','ellipticals.txt','lbg_all_flam.txt']
+galaxy_types_files = ['SB1','SB2','SB3','SB4','SB5','SB6','S0','Sa',
+						'Sb','Sc','bulge','ellipticals','lbg_all_flam.dat']
 star_types_path = 'core/pickle/'
 star_types_files = ['o5v.dat','b0v.dat','b57v.dat','a0v.dat','a5v.dat',
 					'f0v.dat','g0v.dat','g5v.dat','k0v.dat','k5v.dat',
 					'm0v.dat','m5v.dat']
 filter_path = 'core/filters/'
-filter_files = ['photonUX.txt','photonB.txt','photonV.txt','photonR.txt','photonI.txt','u.txt','g.txt','r.txt','i.txt','z.txt']
+filter_files = ['photonUX.dat','photonB.dat','photonV.dat','photonR.dat','photonI.dat','u.dat','g.dat','r.dat','i.dat','z.dat']
 
 skyfiles_path = 'core/skybackground/'
 skyfiles_files = ['00d.txt','03d.txt','07d.txt','10d.txt','14d.txt']
@@ -30,9 +30,3 @@ dichroic_path = 'core/'
 dichroic_files = ['dichroic.txt']
 atmo_ext_path = 'core/'
 atmo_ext_files = ['atmo_extinction.dat']
-'''
-pandaframe = pd.DataFrame
-all_paths = [os.path.join(galaxy_types_path,_file) for _file in galaxy_types_files]
-all_data = [pd.read_csv(_file) for 
-print(all_paths)
-'''
