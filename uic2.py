@@ -11,7 +11,6 @@ import json
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from spectres import spectres
 from astropy import units as u
 from util import config as cfg
 from util import defaults as dfs
@@ -78,7 +77,8 @@ skyfile_00d = ColumnDataSource(pd.read_csv(os.path.join(cfg.skyfiles_path,cfg.sk
 skyfile_03d = ColumnDataSource(pd.read_csv(os.path.join(cfg.skyfiles_path,cfg.skyfiles_files[1]),sep='\s+',skiprows=1))
 skyfile_07d = ColumnDataSource(pd.read_csv(os.path.join(cfg.skyfiles_path,cfg.skyfiles_files[2]),sep='\s+',skiprows=1))
 skyfile_10d = ColumnDataSource(pd.read_csv(os.path.join(cfg.skyfiles_path,cfg.skyfiles_files[3]),sep='\s+',skiprows=1))
-skyfile_14d = ColumnDataSource(pd.read_csv(os.path.join(cfg.skyfiles_path,cfg.skyfiles_files[4]),sep='\s+',skiprows=1))
+panda_14d = pd.read_csv(os.path.join(cfg.skyfiles_path,cfg.skyfiles_files[4]),sep='\s+',skiprows=1)
+skyfile_14d = ColumnDataSource(panda_14d)
 
 efficiency_grating_red = pd.read_csv(os.path.join(cfg.efficiency_path,cfg.efficiency_grating_files[0]),sep=',',skiprows=1)
 efficiency_grating_blue = pd.read_csv(os.path.join(cfg.efficiency_path,cfg.efficiency_grating_files[1]),sep=',',skiprows=1)
@@ -162,8 +162,8 @@ widget_seeing = Slider(start=dfs.default_seeing_start,end=dfs.default_seeing_end
 widget_slit_width = Slider(start=dfs.default_slit_width_start,end=dfs.default_slit_width_end,
 	value=dfs.default_slit_width,step=dfs.default_slit_width_step,title=dfs.string_title[6], name=dfs.string_widget_names[10])
 # range sliders
-widget_wavelengths = RangeSlider(start=dfs.default_start_wavelength, end=dfs.default_stop_wavelength,
-	value=(dfs.default_start_wavelength+500,dfs.default_stop_wavelength-1000), step=dfs.default_wavelength_step,
+widget_wavelengths = RangeSlider(start=dfs.default_limits_wavelength[0], end=dfs.default_limits_wavelength[1],
+	value=(dfs.default_limits_wavelength), step=dfs.default_wavelength_step,
 	title=dfs.string_title[8], name=dfs.string_widget_names[11])
 
 
@@ -213,8 +213,8 @@ tab7 = Panel(child=p7,title=dfs.string_calculate_types[7].title())
 tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7],name='tabs') # string_title[10]
 
 # snr
-cds_snr_red = ColumnDataSource(dict(xr=[],yr=[]))
-cds_snr_blue = ColumnDataSource(dict(xb=[],yb=[]))
+cds_snr_red = ColumnDataSource(dict(xr=dfs.default_wavelength,yr=panda_14d[panda_14d.columns[0]]))
+cds_snr_blue = ColumnDataSource(dict(xb=dfs.default_wavelength,yb=panda_14d[panda_14d.columns[1]]))
 gly_snr_red = glyphs.Line(x="xr",y="yr")
 gly_snr_blue = glyphs.Line(x="xb",y="yb")
 p0.add_glyph(cds_snr_red,gly_snr_red)
@@ -281,10 +281,73 @@ p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 
 				omggg print(star_o5v.data[list(star_o5v.data)[0]])
 '''
+"""
+SpectRes: A fast spectral new_spec_wavs function.
+Copyright (C) 2017  A. C. Carnall
+GNU General Public License
+A couple custom mods for this application
+"""
+def spectres(new_spec_wavs=cds_wavelength.data['wavelength'], old_spec_wavs=cds_snr_red.data['xr'], spec_fluxes=cds_snr_red.data['yr'], spec_errs=None):
+    spec_lhs = np.zeros(np.asarray(old_spec_wavs).shape[0])
+    spec_widths = np.zeros(np.asarray(old_spec_wavs).shape[0])
+    spec_lhs = np.zeros(np.asarray(old_spec_wavs).shape[0])
+    spec_lhs[0] = old_spec_wavs[0] - (old_spec_wavs[1] - old_spec_wavs[0])/2
+    spec_widths[-1] = (old_spec_wavs[-1] - old_spec_wavs[-2])
+    spec_lhs[1:] = (np.asarray(old_spec_wavs)[1:] + np.asarray(old_spec_wavs)[:-1])/2
+    spec_widths[:-1] = spec_lhs[1:] - spec_lhs[:-1]
+    filter_lhs = np.zeros(new_spec_wavs.shape[0]+1)
+    filter_widths = np.zeros(new_spec_wavs.shape[0])
+    filter_lhs[0] = new_spec_wavs[0] - (new_spec_wavs[1] - new_spec_wavs[0])/2
+    filter_widths[-1] = (new_spec_wavs[-1] - new_spec_wavs[-2])
+    filter_lhs[-1] = new_spec_wavs[-1] + (new_spec_wavs[-1] - new_spec_wavs[-2])/2
+    filter_lhs[1:-1] = (new_spec_wavs[1:] + new_spec_wavs[:-1])/2
+    filter_widths[:-1] = filter_lhs[1:-1] - filter_lhs[:-2]
+    if filter_lhs[0] < spec_lhs[0] or filter_lhs[-1] > spec_lhs[-1]:
+        raise ValueError("spectres: The new wavelengths specified must fall within the range of the old wavelength values.")
+ #b =  array.slice().map( function(row){ return row.slice(); });
+    resampled_fluxes = np.zeros(spec_fluxes[0].shape + new_spec_wavs.shape)
+    if spec_errs is not None:
+        if spec_errs.shape != spec_fluxes.shape:
+            raise ValueError("If specified, spec_errs must be the same shape as spec_fluxes.")
+        else:
+            resampled_fluxes_errs = np.copy(resampled_fluxes)
+
+    start = 0
+    stop = 0
+    for j in range(new_spec_wavs.shape[0]):
+        while spec_lhs[start+1] <= filter_lhs[j]:
+            start += 1
+
+        while spec_lhs[stop+1] < filter_lhs[j+1]:
+            stop += 1
+
+        if stop == start:
+            resampled_fluxes[j] = spec_fluxes[start]
+            if spec_errs is not None:
+                resampled_fluxes_errs[j] = spec_errs[start]
+
+        else:
+            start_factor = (spec_lhs[start+1] - filter_lhs[j])/(spec_lhs[start+1] - spec_lhs[start])
+            end_factor = (filter_lhs[j+1] - spec_lhs[stop])/(spec_lhs[stop+1] - spec_lhs[stop])
+            spec_widths[start] *= start_factor
+            spec_widths[stop] *= end_factor
+            resampled_fluxes[j] = np.sum(spec_widths[start:stop+1]*spec_fluxes[start:stop+1], axis=-1)/np.sum(spec_widths[start:stop+1])
+            if spec_errs is not None:
+                resampled_fluxes_errs[j] = np.sqrt(np.sum((spec_widths[start:stop+1]*spec_errs[start:stop+1])**2, axis=-1))/np.sum(spec_widths[start:stop+1])
+            
+            spec_widths[start] /= start_factor
+            spec_widths[stop] /= end_factor
+
+    if spec_errs is not None:
+        return resampled_fluxes, resampled_fluxes_errs
+
+    else: 
+        return resampled_fluxes
 #cds_wavelength.data[list(cds_wavelength.data)[0]],old_spec_wavs=galaxy_sb1.data[list(galaxy_sb1.data)[0]],spec_fluxes=galaxy_sb1.data[list(galaxy_sb1.data)[1]]
-print('{}\n{}\n{}'.format(cds_wavelength.data['wavelength'],cds_snr_red.data['xr'],cds_snr_red.data['yr']))
-spect_res_opt = spectres(cds_wavelength.data['wavelength'],cds_snr_red.data['xr'],cds_snr_red.data['yr'])
-spect_res = CustomJS.from_py_func(spect_res_opt)
+#print('one {}\n too {}\n three{}'.format(cds_wavelength.data['wavelength'],cds_snr_red.data['xr'],cds_snr_red.data['yr']))
+#print(cds_wavelength.data['wavelength'][100:-100])
+#spect_res_red_opt = spectres(cds_wavelength.data['wavelength'][100:-100],cds_snr_red.data['xr'],cds_snr_red.data['yr'])
+spect_res = CustomJS.from_py_func(spectres)
 def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_sb3,galaxy_sb4=galaxy_sb4,galaxy_sb5=galaxy_sb5,galaxy_sb6=galaxy_sb6,galaxy_s0=galaxy_s0,galaxy_sa=galaxy_sa,
 				galaxy_sb=galaxy_sb,galaxy_sc=galaxy_sc,galaxy_bulge=galaxy_bulge,galaxy_ellipticals=galaxy_ellipticals,galaxy_lbg_all_flam=galaxy_lbg_all_flam,
 				star_o5v=star_o5v,star_b0v=star_b0v,star_b57v=star_b57v,star_a0v=star_a0v,star_a5v=star_a5v,star_f0v=star_f0v,
@@ -352,6 +415,7 @@ def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_s
 			elif (widget_galaxy_type.value[1] == 11):
 				_gal_file = galaxy_lbg_all_flam
 
+				#TODO: replace 0.1, use variable global_plot_step or something
 			_wavelength = [widget_wavelengths.value[0]]+[(widget_wavelengths.value[0]+(0.1*i)) for i in range(int((widget_wavelengths.value[1]-widget_wavelengths.value[0])/0.1))]+[widget_wavelengths.value[1]]
 			
 			(cds_snr_red.data)['xr'],(cds_snr_red.data)['yr'] = _gal_file.data[list(_gal_file.data)[0]],_gal_file.data[list(_gal_file.data)[1]]
