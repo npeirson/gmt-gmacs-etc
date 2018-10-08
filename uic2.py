@@ -18,7 +18,7 @@ from bokeh.plotting import figure
 from bokeh.io import output_file,show
 from bokeh.models.callbacks import CustomJS
 from bokeh.layouts import widgetbox, column, row, layout
-from bokeh.models import ColumnDataSource, glyphs, ranges
+from bokeh.models import ColumnDataSource, glyphs, ranges, HoverTool, CustomJSHover
 from bokeh.models.widgets import Dropdown, RadioButtonGroup, CheckboxButtonGroup, Slider, TextInput, RangeSlider, Paragraph, Panel, Tabs, Div
 
 output_file(dfs.string_pagename, title=dfs.site_title, mode='cdn')
@@ -201,6 +201,7 @@ p7 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_heig
 			x_axis_label=dfs.string_axis_labels[7][0],y_axis_label=dfs.string_axis_labels[7][1],x_range=ranges.Range1d(start=dfs.default_start_wavelength, end=dfs.default_stop_wavelength))
 figures = [p0,p1,p2,p3,p4,p5,p6,p7]
 
+
 # assemble graph tabs
 tab0 = Panel(child=p0,title=dfs.string_calculate_types[0])
 tab1 = Panel(child=p1,title=dfs.string_calculate_types[1])
@@ -215,8 +216,8 @@ tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7],name='tabs') # string
 # snr
 cds_snr_red = ColumnDataSource(dict(xr=dfs.default_wavelength,yr=panda_14d[panda_14d.columns[0]]))
 cds_snr_blue = ColumnDataSource(dict(xb=dfs.default_wavelength,yb=panda_14d[panda_14d.columns[1]]))
-gly_snr_red = glyphs.Line(x="xr",y="yr")
-gly_snr_blue = glyphs.Line(x="xb",y="yb")
+gly_snr_red = glyphs.Line(x="xr",y="yr",line_color='red')
+gly_snr_blue = glyphs.Line(x="xb",y="yb",line_color='blue')
 p0.add_glyph(cds_snr_red,gly_snr_red)
 p0.add_glyph(cds_snr_blue,gly_snr_blue)
 
@@ -343,10 +344,7 @@ def spectres(new_spec_wavs=cds_wavelength.data['wavelength'], old_spec_wavs=cds_
 
     else: 
         return resampled_fluxes
-#cds_wavelength.data[list(cds_wavelength.data)[0]],old_spec_wavs=galaxy_sb1.data[list(galaxy_sb1.data)[0]],spec_fluxes=galaxy_sb1.data[list(galaxy_sb1.data)[1]]
-#print('one {}\n too {}\n three{}'.format(cds_wavelength.data['wavelength'],cds_snr_red.data['xr'],cds_snr_red.data['yr']))
-#print(cds_wavelength.data['wavelength'][100:-100])
-#spect_res_red_opt = spectres(cds_wavelength.data['wavelength'][100:-100],cds_snr_red.data['xr'],cds_snr_red.data['yr'])
+
 spect_res = CustomJS.from_py_func(spectres)
 def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_sb3,galaxy_sb4=galaxy_sb4,galaxy_sb5=galaxy_sb5,galaxy_sb6=galaxy_sb6,galaxy_s0=galaxy_s0,galaxy_sa=galaxy_sa,
 				galaxy_sb=galaxy_sb,galaxy_sc=galaxy_sc,galaxy_bulge=galaxy_bulge,galaxy_ellipticals=galaxy_ellipticals,galaxy_lbg_all_flam=galaxy_lbg_all_flam,
@@ -439,12 +437,34 @@ def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_s
 	else:
 		print('[ETC] Switched to predefined plot')
 
+def plot_types_callback(gly_snr_red=gly_snr_red,gly_os_noise_red=gly_os_noise_red,gly_os_nonoise_red=gly_os_nonoise_red,
+					gly_sky_red=gly_sky_red,gly_dichroic_red=gly_dichroic_red,gly_grating_red=gly_grating_red,gly_ccd_red=gly_ccd_red,
+					gly_snr_blue=gly_snr_blue,gly_os_noise_blue=gly_os_noise_blue,gly_os_nonoise_blue=gly_os_nonoise_blue,
+					gly_sky_blue=gly_sky_blue,gly_dichroic_blue=gly_dichroic_blue,gly_grating_blue=gly_grating_blue,gly_ccd_blue=gly_ccd_blue,tabs=tabs):
+	red_glyphs = [gly_snr_red,gly_os_noise_red,gly_os_nonoise_red,gly_sky_red,gly_dichroic_red,gly_grating_red,gly_ccd_red]
+	blue_glyphs = [gly_snr_blue,gly_os_noise_blue,gly_os_nonoise_blue,gly_sky_blue,gly_dichroic_blue,gly_grating_blue,gly_ccd_blue]
+	# red glyphs on
+	if (0 in cb_obj.active):
+		print(cb_obj.active)
+		red_glyphs[tabs.active].line_alpha = 0.5
+	# red glyphs off
+	elif (0 not in cb_obj.active):
+		red_glyphs[tabs.active].line_alpha = 0.0
+	# blue glyphs on
+	if (1 in cb_obj.active):
+		blue_glyphs[tabs.active].line_alpha = 0.5
+	# blue glyphs off
+	elif (1 not in cb_obj.active):
+		blue_glyphs[tabs.active].line_alpha = 0.0
+
+
 # linkages
 coalesced_callback = CustomJS.from_py_func(fun_callback) # only convert to JS once!
 tabs.callback = coalesced_callback
 widget_object_types.callback = coalesced_callback
 widget_types_types.callback = coalesced_callback
 widget_galaxy_type.callback = coalesced_callback
+widget_plot_types.callback = CustomJS.from_py_func(plot_types_callback) # this can go straight in (unlike coalesced) since only one idget calls it; it only gets instanced once
 
 
 # final panel building
