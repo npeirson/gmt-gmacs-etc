@@ -1,8 +1,15 @@
 # Folders
-standalone/
+ignore/
+util/__pycache__/
 
 # Object file
 *.o
 
 # Ada Library Information
 *.ali
+
+# HTML
+gmt.css
+pghold.html
+panda_test.html
+etc.html

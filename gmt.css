@@ -1,0 +1,138 @@
+.blox {
+  background-color: #FFF;
+  width: 100%;
+  height: 100%;
+  z-index:9999;
+  position:absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: auto;
+}
+
+#circle {
+  background-color: #FFF;
+}
+
+.gmt-circle {
+  margin: auto;
+  width: 280px;
+  height: 280px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  z-index:10000;
+}
+
+.gmt-circle .gmt-circle {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.gmt-circle .gmt-circle:before {
+  content: '';
+  display: block;
+  margin: 0 auto;
+  width: 20%;
+  height: 20%;
+  background-color: #004181;
+  border-radius: 100%;
+  -webkit-animation: gmt-circleFadeDelay 1.5s infinite ease-in-out both;
+          animation: gmt-circleFadeDelay 1.5s infinite ease-in-out both;
+}
+.gmt-circle .gmt-circle2 {
+  -webkit-transform: translateX(64px) translateY(42px);
+      -ms-transform: translateX(64px) translateY(42px);
+          transform: translateX(64px) translateY(42px);
+}
+.gmt-circle .gmt-circle3 {
+  -webkit-transform: translateX(64px) translateY(110px);
+      -ms-transform: translateX(64px) translateY(110px);
+          transform: translateX(64px) translateY(110px);
+}
+.gmt-circle .gmt-circle4 {
+  -webkit-transform: translateY(156px);
+      -ms-transform: translateY(156px);
+          transform: translateY(156px);
+}
+.gmt-circle .gmt-circle5 {
+  -webkit-transform: translateX(-64px) translateY(110px);
+      -ms-transform: translateX(-64px) translateY(110px);
+          transform: translateX(-64px) translateY(110px);
+}
+.gmt-circle .gmt-circle6 {
+  -webkit-transform: translateX(-64px) translateY(42px);
+      -ms-transform: translateX(-64px) translateY(42px);
+          transform: translateX(-64px) translateY(42px);
+}
+
+.gmt-circle .gmt-circle-big {
+  -webkit-transform: translateY(78px);
+      -ms-transform: translateY(78px);
+          transform: translateY(78px);
+}
+
+.gmt-circle .gmt-circle-small {
+  -webkit-transform: translateY(78px);
+      -ms-transform: translateY(78px);
+          transform: translateY(78px);
+}
+
+.gmt-circle .gmt-circle-big:before {
+  background-color: #004181;
+  width: 20%;
+  height: 20%;
+}
+
+.gmt-circle .gmt-circle-small:before{
+  background-color: #FFF;  
+  width: 10%;
+  height: 10%;
+  margin-top: 5%;
+  z-index: 20;
+}
+
+.gmt-circle .gmt-circle2:before {
+  -webkit-animation-delay: -1.25s;
+          animation-delay: -1.25s; 
+}
+.gmt-circle .gmt-circle3:before {
+  -webkit-animation-delay: -1s;
+          animation-delay: -1s; 
+}
+.gmt-circle .gmt-circle4:before {
+  -webkit-animation-delay: -0.75s;
+          animation-delay: -0.75s; 
+}
+.gmt-circle .gmt-circle5:before {
+  -webkit-animation-delay: -0.5s;
+          animation-delay: -0.5s; 
+}
+.gmt-circle .gmt-circle6:before {
+  -webkit-animation-delay: -0.25s;
+          animation-delay: -0.25s; 
+}
+.gmt-circle .gmt-circle-big:before{
+  -webkit-animation: 0;
+         -animation: 0;
+}
+.gmt-circle .gmt-circle-small:before{
+  -webkit-animation: 0;
+         -animation: 0;
+}
+
+@-webkit-keyframes gmt-circleFadeDelay {
+  0%, 40%, 100% { opacity: 1; }
+  70% { opacity: 0; }
+}
+
+@keyframes gmt-circleFadeDelay {
+  0%, 40%, 100% { opacity: 1; }
+  70% { opacity: 0; } 
+}

@@ -52,5 +52,3 @@ erg cm^-2 s^-1 A^-1, have initial wavelength 1100A and wavelength bin 1.5A.
 Note that the individual spectra are in the observed frame, while the
 templates are in the rest frame.
 
-
-!! Note: some minor adjustments were made to data formatting for application to the GMACS ETC, but no data points have been altered or excluded in any way. (npeirson, 02/12/2018)
