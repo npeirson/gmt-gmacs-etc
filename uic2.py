@@ -455,18 +455,20 @@ def plot_types_callback(gly_snr_red=gly_snr_red,gly_os_noise_red=gly_os_noise_re
 	elif (1 not in cb_obj.active):
 		blue_glyphs[tabs.active].line_alpha = 0.0
 
-def read_noise(widget_seeing=widget_seeing,widget_slit_width=widget_slit_width,cds_noise=cds_noise,widget_binned_pixel_scale_mode=widget_binned_pixel_scale_mode,widget_grating_types=widget_grating_types):
+def read_noise(widget_seeing=widget_seeing,widget_slit_width=widget_slit_width,cds_noise=cds_noise,widget_binned_pixel_scale=widget_binned_pixel_scale,widget_grating_types=widget_grating_types):
 	slit_size = widget_slit_width.value
 	seeing = widget_seeing.value
+	bps = widget_binned_pixel_scale.active + 1
+
 	if (widget_grating_types.active == 1):
 		delta_lambda_default = 1.4 # high res
 	else:
 		delta_lambda_default = 3.73 # low res, default
-	if (widget_binned_pixel_scale_mode.active == 0):
+	if (bps == 0):
 		bp_const = 12
-	elif (widget_binned_pixel_scale_mode.active == 2):
+	elif (bps == 2):
 		bp_const = 4
-	elif (widget_binned_pixel_scale_mode.active == 3):
+	elif (bps == 3):
 		bp_const = 3
 	else:
 		bp_const = 6
@@ -475,13 +477,11 @@ def read_noise(widget_seeing=widget_seeing,widget_slit_width=widget_slit_width,c
 	spat_resl = int(seeing/(0.7/12))
 	extent = seeing*slit_size
 	npix = extent/(0.7/12)**2
-	print('extent: ', extent, 'arcsec^2\t\t', 'num pixels: ',npix, 'px')
+	print('extent: ', extent, 'arcsec^2\t\t\t', 'num pixels: ',npix, 'px')
 	print('spectral resolution: ', spec_resl, 'px\t\t', 'spatial resolution: ', spat_resl, 'px')
-	x = [1,2,3,4]
 	readnoise = lambda binsize: int(rn * spec_resl * spat_resl / (binsize * binsize)) # e-
-	for bpx in x:
-		_rn = readnoise(bpx)
-		print('bin', bpx, 'x:', _rn, 'e-')
+	_rn = readnoise(bps)
+	print('bin {}x: {} e-'.format(bps,_rn))
 
 # linkages
 coalesced_callback = CustomJS.from_py_func(fun_callback) # only convert to JS once!
