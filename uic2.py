@@ -481,6 +481,8 @@ def read_noise(widget_seeing=widget_seeing,widget_slit_width=widget_slit_width,c
 	print('spectral resolution: ', spec_resl, 'px\t\t', 'spatial resolution: ', spat_resl, 'px')
 	readnoise = lambda binsize: int(rn * spec_resl * spat_resl / (binsize * binsize)) # e-
 	_rn = readnoise(bps)
+	cds_noise.data['noise'] = _rn
+	cds_noise.change.emit()
 	print('bin {}x: {} e-'.format(bps,_rn))
 
 # linkages
@@ -490,9 +492,16 @@ widget_object_types.callback = coalesced_callback
 widget_types_types.callback = coalesced_callback
 widget_galaxy_type.callback = coalesced_callback
 widget_plot_types.callback = CustomJS.from_py_func(plot_types_callback) # this can go straight in (unlike coalesced) since only one idget calls it; it only gets instanced once
-eh = CustomJS.from_py_func(read_noise)
-widget_grating_types.callback = eh
-widget_binned_pixel_scale.callback = eh
+read_noise_callback = CustomJS.from_py_func(read_noise)
+widget_grating_types.callback = read_noise_callback
+widget_binned_pixel_scale.callback = read_noise_callback
+
+ok='ok'
+def poke(ok=ok):
+	print(ok)
+
+test_callback = CustomJS.from_py_func(poke)
+# ok I'm just going to extend class DataSource and then this is going to be easy.
 
 # final panel building
 widget_group_one = widgetbox(children=[widget_telescope_sizes,widget_object_types,widget_types_types,widget_galaxy_type])
