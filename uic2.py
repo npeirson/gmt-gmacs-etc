@@ -8,6 +8,7 @@
 import os
 import time
 import json
+import math
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -15,7 +16,8 @@ from astropy import units as u
 from util import config as cfg
 from util import defaults as dfs
 from bokeh.plotting import figure
-from bokeh.io import output_file,show
+from bokeh.embed import autoload_static
+from bokeh.io import output_file,show,save
 from bokeh.models.callbacks import CustomJS
 from bokeh.layouts import widgetbox, column, row, layout
 from bokeh.models import ColumnDataSource, glyphs, ranges, HoverTool, CustomJSHover
@@ -166,7 +168,6 @@ widget_wavelengths = RangeSlider(start=dfs.default_limits_wavelength[0], end=dfs
 	value=(dfs.default_limits_wavelength), step=dfs.default_wavelength_step,
 	title=dfs.string_title[8], name=dfs.string_widget_names[11])
 
-
 # other widgets
 widget_header = Div(text='<h1>'+dfs.string_header_one+'</h1><h3>'+dfs.string_header_two+'</h3>',width=500,height=70)
 widget_plot_types = CheckboxButtonGroup(labels=dfs.string_plot_types, active=dfs.default_plot_types, name=dfs.string_widget_names[12]) # TODO: make double-off == double-on
@@ -273,6 +274,10 @@ cds_atmo_ext = ColumnDataSource(dict(x=atmo_ext_x, y=atmo_ext_y))
 gly_atmo_ext = glyphs.Line(x="x",y="y",line_width=dfs.default_line_width,line_color=dfs.default_line_color_else)
 p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 
+# other sources for computation pipeline
+cds_signal = ColumnDataSource(dict(signal=[]))
+cds_noise = ColumnDataSource(dict(noise=[]))
+
 
 '''
 	Python functions for conversion to JavaScript
@@ -312,21 +317,17 @@ def spectres(new_spec_wavs=cds_wavelength.data['wavelength'], old_spec_wavs=cds_
             raise ValueError("If specified, spec_errs must be the same shape as spec_fluxes.")
         else:
             resampled_fluxes_errs = np.copy(resampled_fluxes)
-
     start = 0
     stop = 0
     for j in range(new_spec_wavs.shape[0]):
         while spec_lhs[start+1] <= filter_lhs[j]:
             start += 1
-
         while spec_lhs[stop+1] < filter_lhs[j+1]:
             stop += 1
-
         if stop == start:
             resampled_fluxes[j] = spec_fluxes[start]
             if spec_errs is not None:
                 resampled_fluxes_errs[j] = spec_errs[start]
-
         else:
             start_factor = (spec_lhs[start+1] - filter_lhs[j])/(spec_lhs[start+1] - spec_lhs[start])
             end_factor = (filter_lhs[j+1] - spec_lhs[stop])/(spec_lhs[stop+1] - spec_lhs[stop])
@@ -335,13 +336,10 @@ def spectres(new_spec_wavs=cds_wavelength.data['wavelength'], old_spec_wavs=cds_
             resampled_fluxes[j] = np.sum(spec_widths[start:stop+1]*spec_fluxes[start:stop+1], axis=-1)/np.sum(spec_widths[start:stop+1])
             if spec_errs is not None:
                 resampled_fluxes_errs[j] = np.sqrt(np.sum((spec_widths[start:stop+1]*spec_errs[start:stop+1])**2, axis=-1))/np.sum(spec_widths[start:stop+1])
-            
             spec_widths[start] /= start_factor
             spec_widths[stop] /= end_factor
-
     if spec_errs is not None:
         return resampled_fluxes, resampled_fluxes_errs
-
     else: 
         return resampled_fluxes
 
@@ -457,6 +455,33 @@ def plot_types_callback(gly_snr_red=gly_snr_red,gly_os_noise_red=gly_os_noise_re
 	elif (1 not in cb_obj.active):
 		blue_glyphs[tabs.active].line_alpha = 0.0
 
+def read_noise(widget_seeing=widget_seeing,widget_slit_width=widget_slit_width,cds_noise=cds_noise,widget_binned_pixel_scale_mode=widget_binned_pixel_scale_mode,widget_grating_types=widget_grating_types):
+	slit_size = widget_slit_width.value
+	seeing = widget_seeing.value
+	if (widget_grating_types.active == 1):
+		delta_lambda_default = 1.4 # high res
+	else:
+		delta_lambda_default = 3.73 # low res, default
+	if (widget_binned_pixel_scale_mode.active == 0):
+		bp_const = 12
+	elif (widget_binned_pixel_scale_mode.active == 2):
+		bp_const = 4
+	elif (widget_binned_pixel_scale_mode.active == 3):
+		bp_const = 3
+	else:
+		bp_const = 6
+	rn = delta_lambda_default / bp_const
+	spec_resl = int(slit_size/(0.7/12))
+	spat_resl = int(seeing/(0.7/12))
+	extent = seeing*slit_size
+	npix = extent/(0.7/12)**2
+	print('extent: ', extent, 'arcsec^2\t\t', 'num pixels: ',npix, 'px')
+	print('spectral resolution: ', spec_resl, 'px\t\t', 'spatial resolution: ', spat_resl, 'px')
+	x = [1,2,3,4]
+	readnoise = lambda binsize: int(rn * spec_resl * spat_resl / (binsize * binsize)) # e-
+	for bpx in x:
+		_rn = readnoise(bpx)
+		print('bin', bpx, 'x:', _rn, 'e-')
 
 # linkages
 coalesced_callback = CustomJS.from_py_func(fun_callback) # only convert to JS once!
@@ -465,7 +490,9 @@ widget_object_types.callback = coalesced_callback
 widget_types_types.callback = coalesced_callback
 widget_galaxy_type.callback = coalesced_callback
 widget_plot_types.callback = CustomJS.from_py_func(plot_types_callback) # this can go straight in (unlike coalesced) since only one idget calls it; it only gets instanced once
-
+eh = CustomJS.from_py_func(read_noise)
+widget_grating_types.callback = eh
+widget_binned_pixel_scale.callback = eh
 
 # final panel building
 widget_group_one = widgetbox(children=[widget_telescope_sizes,widget_object_types,widget_types_types,widget_galaxy_type])
@@ -473,7 +500,8 @@ widget_group_two = layout([[widget_mag_input],[widget_filters,widget_mag_type]])
 widget_group_three = widgetbox(children=[widget_grating_types,widget_redshift,widget_exposure_time,widget_seeing,widget_slit_width,widget_moon_days_header,widget_moon_days,widget_wavelengths,widget_binned_pixel_scale,widget_plot_types]) # removed widget_plot_step and widget_binned_pixel_scale_mode
 widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.default_toolbar_width)
 inputs = row(children=[widgets,tabs],sizing_mode='scale_height')
-l = layout([[widget_header],[inputs]])
 
-# export
+l = layout([[widget_header],[inputs]])
 show(l)
+
+print('Build completed in {} seconds.'.format(time.time()-time_start))
