@@ -477,13 +477,13 @@ def read_noise(widget_seeing=widget_seeing,widget_slit_width=widget_slit_width,c
 	spat_resl = int(seeing/(0.7/12))
 	extent = seeing*slit_size
 	npix = extent/(0.7/12)**2
-	print('extent: ', extent, 'arcsec^2\t\t\t', 'num pixels: ',npix, 'px')
-	print('spectral resolution: ', spec_resl, 'px\t\t', 'spatial resolution: ', spat_resl, 'px')
+	print('extent: ', extent, 'arcsec^2\n', 'num pixels: ',npix, 'px')
+	print('spectral resolution: ', spec_resl, 'px\n', 'spatial resolution: ', spat_resl, 'px')
 	readnoise = lambda binsize: int(rn * spec_resl * spat_resl / (binsize * binsize)) # e-
 	_rn = readnoise(bps)
 	cds_noise.data['noise'] = _rn
-	cds_noise.change.emit()
 	print('bin {}x: {} e-'.format(bps,_rn))
+	cds_noise.change.emit()
 
 # linkages
 coalesced_callback = CustomJS.from_py_func(fun_callback) # only convert to JS once!
@@ -496,11 +496,11 @@ read_noise_callback = CustomJS.from_py_func(read_noise)
 widget_grating_types.callback = read_noise_callback
 widget_binned_pixel_scale.callback = read_noise_callback
 
-ok='ok'
-def poke(ok=ok):
-	print(ok)
+def poke(ok='ok'):
+	print('shit')
 
-test_callback = CustomJS.from_py_func(poke)
+cds_noise.callback = CustomJS.from_py_func(poke)
+
 # ok I'm just going to extend class DataSource and then this is going to be easy.
 
 # final panel building
