@@ -496,11 +496,6 @@ read_noise_callback = CustomJS.from_py_func(read_noise)
 widget_grating_types.callback = read_noise_callback
 widget_binned_pixel_scale.callback = read_noise_callback
 
-def poke(ok='ok'):
-	print('shit')
-
-cds_noise.callback = CustomJS.from_py_func(poke)
-
 # ok I'm just going to extend class DataSource and then this is going to be easy.
 
 # final panel building
