@@ -47,7 +47,7 @@ string_binned_pixel_scale_modes = ['Default','Custom']
 string_calculate_types = ['Signal-to-Noise Ratio','Observed Spectrum (without noise)','Observed Spectrum (with noise)','Observed sky background','Dichroic throughput','Grating throughput','CCD QE','Atmospheric extinction']
 string_plot_types = ['Red','Blue']
 string_binned_pixel_scale_header = 'Binned pixel scale'
-string_binned_pixel_scale_labels = ['1x1','2x2','4x4']
+string_binned_pixel_scale_labels = ['1x1','2x2','3x3','4x4']
 string_plot_step = 'Plot-Step'
 string_axis_labels = [('x','y'),
 						('x','y'),
@@ -86,6 +86,7 @@ default_start_wavelength = 3200
 default_stop_wavelength = 10000
 default_wavelength_step = 1
 default_binned_pixel_scale = '0.0' # TODO: actual value
+default_binned_pixel_scale_uhh = 1
 default_calculate_types = string_calculate_types[0]
 default_plot_types = [0,1]
 default_plot_height = 700

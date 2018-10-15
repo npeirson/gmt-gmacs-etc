@@ -1,6 +1,11 @@
 # Folders
 ignore/
 util/__pycache__/
+py/data/
+py/__pycache__/
+
+# Python files
+test3.py
 
 # Object file
 *.o
@@ -14,3 +19,4 @@ pghold.html
 panda_test.html
 etc.html
 ls-etc.html
+dropdown.html
