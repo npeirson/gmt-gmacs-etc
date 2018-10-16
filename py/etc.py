@@ -23,7 +23,7 @@ class snr(object):
 		# required args
 		self.seeing = self.seeing * u.arcsec
 		self.slit_size = self.slit_size * u.arcsec
-		self.wavelength = self.wavelength * u.angstrom
+		self.wavelength = np.dot(self.wavelength,u.angstrom)
 		
 		# squelch
 		try:
@@ -87,8 +87,8 @@ class snr(object):
 		except:
 			print('[ error ] : You must select an enumerated integer option \'number of days to new moon\' (moon_day)\n\tOptions: 0, 3, 7, 10, 14')
 		# sky background
-		sky_x = (skyfile[skyfile.columns[0]] * (u.micron).to(u.angstrom))
-		sky_y = (skyfile[skyfile.columns[1]] * (1 / u.micron).to(1 / u.angstrom))
+		sky_x = np.dot(skyfile[skyfile.columns[0]],(u.micron).to(u.angstrom))
+		sky_y = np.dot(skyfile[skyfile.columns[1]],(1 / u.micron).to(1 / u.angstrom))
 		old_res = sky_x[1] - sky_x[0]
 
 		# area, permits string OR num mirrors
@@ -111,34 +111,34 @@ class snr(object):
 
 		# atmospheric extinction
 		atmo_ext = pd.read_csv(edl.atmo_ext_path,sep=',')
-		self.end_extinction = (spectres(self.wavelength.value,np.asarray(atmo_ext[atmo_ext.columns[0]]),np.asarray(atmo_ext[atmo_ext.columns[1]])))
+		self.end_extinction = (spectres(self.wavelength,np.asarray(atmo_ext[atmo_ext.columns[0]]),np.asarray(atmo_ext[atmo_ext.columns[1]])))
 		
 		# a couple other things
-		lambda_a = np.arange(lambda_min,lambda_max,0.1) * u.angstrom
+		lambda_a = np.dot(np.arange(lambda_min,lambda_max,0.1),u.angstrom)
 		obj_x = obj_x * (1 + self.redshift) # apply redshift
 		self.delta_lambda = delta_lambda_default * float(self.slit_size)/0.7
-		self.plot_step = self.wavelength.value[-1]-self.wavelength.value[-2]
+		self.plot_step = self.wavelength[-1]-self.wavelength[-2]
 		
 		if not sss:
 			print('[ info ] : Delta lambda: {} Angstrom\nBinned pixel scale: {} Angstrom/pixel'.format(self.delta_lambda,self.plot_step))
 
 		# calculate things
-		self.flux_a = spectres(lambda_a.value,obj_x,obj_y) * u.jansky
-		self.trans = spectres(lambda_a.value,filter_x,filter_y)
-		self.extinction = spectres(lambda_a.value,atmo_ext[atmo_ext.columns[0]],atmo_ext[atmo_ext.columns[1]])
-		self.flux = flux_a.cgs # convert to cgs
-		self._lambda = lambda_a.to(u.meter) # convert to meter
+		self.flux_a = np.dot(spectres(lambda_a,obj_x,obj_y),u.jansky)
+		self.trans = spectres(lambda_a,filter_x,filter_y)
+		self.extinction = spectres(lambda_a,atmo_ext[atmo_ext.columns[0]],atmo_ext[atmo_ext.columns[1]])
+		self.flux = [flux_a[i].cgs for i in range(flux_a)] # convert to cgs
+		self._lambda = [lambda_a[i].to(u.meter) for i in range(lambda_a)] # convert to meter
 
 		# validate flux
 		blanks = itertools.count(0)
 		try:
-			for i in self.flux.value:
-				if (self.flux.value[i] == 0):
+			for i in self.flux:
+				if (self.flux[i] == 0):
 					next(blanks)
-				elif math.isnan(self.flux.value[i]):
-					self.flux.value[i] = 0
+				elif math.isnan(self.flux[i].value):
+					self.flux[i] = 0
 					next(blanks)
-			if (blanks > (len(self.flux.value)/5)):
+			if (blanks > (len(self.flux)/5)):
 				zero_per = blanks / len(self.flux) * 100 # percent of values that are zero
 				if not sss:
 					print('[ error ] : Due to template limitations, {}% of spectrum in this bandpass is zero. Change redshift and/or bandpass.'.format(zero_per))
@@ -151,9 +151,9 @@ class snr(object):
 			if (self.mag_sys_opt.lower() == 'vega'):
 				vega_panda = pd.read_csv(edl.vega_file,sep='\s+',skiprows=1) * u.jansky
 				flux_vega = (spectres(lambda_a,vega_panda[vega_panda.columns[0]],vega_panda[vega_panda.columns[1]])).cgs
-				self.mag_model = -2.5 * math.log(math.fsum((self.flux.value*self.trans*self.extinction*self._lambda.value)),10)/math.fsum(flux_vega.value*self.trans*self.extinction*self._lambda.value) + 0.026 # assuming that vega is 0.026 mag in all bands
+				self.mag_model = -2.5 * math.log(math.fsum((self.flux*self.trans*self.extinction*self._lambda)),10)/math.fsum(flux_vega*self.trans*self.extinction*self._lambda) + 0.026 # assuming that vega is 0.026 mag in all bands
 			elif (self.mag_sys_opt.lower() == 'ab'):
-				self.mag_model = -48.60 - 2.5 * math.log((math.fsum((self.flux.value*self.trans*self.extinction*self._lambda.value))/math.fsum((self.trans*self._lambda.value*self.extinction*(const.c.value/(self._lambda.value**2))))),10) # zeropoint is 48.60
+				self.mag_model = -48.60 - 2.5 * math.log((math.fsum((self.flux*self.trans*self.extinction*self._lambda))/math.fsum((self.trans*self._lambda*self.extinction*(const.c/(self._lambda**2))))),10) # zeropoint is 48.60
 		except:
 			print('[ error ] : Attribute \'mag_sys_opt\' must be set! Include \'VEGA\' or \'AB\'')
 
@@ -171,13 +171,13 @@ class snr(object):
 		else:
 			print('[ error ] : The object template resolution is lower than the instrument\'s resolution.')
 
-		ts_flux = (spectres(self.wavelength.value,self.ss_lambda,self.ss_flux)) * u.jansky
+		ts_flux = (spectres(self.wavelength,self.ss_lambda,self.ss_flux)) * u.jansky
 		power = ((ts_flux * 1e-3) * area * self.exposure_time * self.plot_step) # should come out as joules
 		counts_counts = (power / ((const.h * const.c) / self.wavelength)) / 1e10
 		sigma = self.seeing / gaussian_sigma_to_fwhm
 		funx = lambda _x : (1/(sigma*(math.sqrt(2 * math.pi))) * math.exp(-_x**2 / (2 * sigma**2)))
 		self.percent = quad(funx,(-self.slit_size/2),(self.slit_size/2)) * quad(funx,(-self.seeing/2),(self.seeing/2)) # for signal calculation later
-		self.extension = (self.seeing * self.slit_size * u.arcsec**2)
+		self.extension = (self.seeing * self.slit_size)
 
 		# calculate noise
 		sigma = self.delta_lambda / gaussian_sigma_to_fwhm
@@ -189,23 +189,24 @@ class snr(object):
 		
 		# resample dichroic transmission
 		dichroic_panda = pd.read_csv(edl.dichroic_path,sep='\s+',skiprows=1)
-		dichro_x = (dichroic_panda[dichroic_panda.columns[0]] * u.nm).to(u.angstrom)
+		dichro_x = (dichroic_panda[dichroic_panda.columns[0]])
+		dichro_x = [(dichro_x[i] * u.nm).to(u.angstrom) for i in range (dichro_x)]
 		dichro_y1 = (dichroic_panda[dichroic_panda.columns[1]]) # reflectivity ... units? joule per square meter or something?
 		dichro_y2 = (dichroic_panda[dichroic_panda.columns[2]]) # transmission
-		self.red_dichro = (spectres(self.wavelength.value,dichro_x.value,dichro_y1))
-		self.blue_dichro = (spectres(self.wavelength.value,dichro_x.value,dichro_y2))
+		self.red_dichro = (spectres(self.wavelength,dichro_x,dichro_y1))
+		self.blue_dichro = (spectres(self.wavelength,dichro_x,dichro_y2))
 
 		# resample grating efficiency
 		grating_panda_red = pd.read_csv(edl.grating_path[0],sep='\s+',skiprows=1)
 		grating_panda_blue = pd.read_csv(edl.grating_path[1],sep='\s+',skiprows=1)
-		self.red_grating = (spectres(self.wavelength.value,grating_panda_red[grating_panda_red.columns[0]],grating_panda_red[grating_panda_red.columns[1]]))
-		self.blue_grating = (spectres(self.wavelength.value,grating_panda_blue[grating_panda_blue.columns[0]],grating_panda_blue[grating_panda_blue.columns[1]]))
+		self.red_grating = (spectres(self.wavelength,grating_panda_red[grating_panda_red.columns[0]],grating_panda_red[grating_panda_red.columns[1]]))
+		self.blue_grating = (spectres(self.wavelength,grating_panda_blue[grating_panda_blue.columns[0]],grating_panda_blue[grating_panda_blue.columns[1]]))
 
 		# resample ccd efficiency
 		ccd_panda_red = pd.read_csv(edl.ccd_path[0],sep='\s+',skiprows=1)
 		ccd_panda_blue = pd.read_csv(edl.ccd_path[1],sep='\s+',skiprows=1)
-		self.red_ccd = (spectres(self.wavelength.value,ccd_panda_red[ccd_panda_red.columns[0]],ccd_panda_red[ccd_panda_red.columns[1]]))
-		self.blue_ccd = (spectres(self.wavelength.value,ccd_panda_blue[ccd_panda_red.columns[0]],ccd_panda_blue[ccd_panda_red.columns[1]]))
+		self.red_ccd = (spectres(self.wavelength,ccd_panda_red[ccd_panda_red.columns[0]],ccd_panda_red[ccd_panda_red.columns[1]]))
+		self.blue_ccd = (spectres(self.wavelength,ccd_panda_blue[ccd_panda_blue.columns[0]],ccd_panda_blue[ccd_panda_blue.columns[1]]))
 
 		# read noise
 		self.spectral_resolution = math.ceil((self.slit_size/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer
@@ -261,5 +262,5 @@ class snr(object):
 		self.osb_sky_background = {self.red_noise,self.blue_noise}
 
 	def try_plotting(self):
-		plt.plot(self.wavelength.value,self.snr)
+		plt.plot(self.wavelength,self.snr)
 		plt.show()
