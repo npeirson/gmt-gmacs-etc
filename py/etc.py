@@ -12,13 +12,17 @@ from scipy.integrate import quad
 
 #obj,wavelength,filter_opt,magnitude,mag_sys_opt,grating_opt='LOW',redshift,exposure_time,seeing,slit_size,moon_days=0,plot_channel='BOTH',telescope_mode='FULL',binx=2,sss=False
 class simulate:
-	def __init__(self,object,filter,wavelength,seeing,slit_size,moon_days,**kwargs): # wavelength,obj,filter_opt,slit_size,moon_days,mag_sys_opt,seeing,redshift
-		self.__dict__ = dict(kwargs)
-
+	def __init__(self,obj,filter_opt,wavelength,seeing,slit_size,moon_days,redshift,**kwargs): # wavelength,obj,filter_opt,slit_size,moon_days,mag_sys_opt,seeing,redshift
+		self.__dict__ = dict(kwargs) # pick up any optionals
+		# required args
+		self.redshift = redshift
+		self.obj = obj
+		self.filter_opt = filter_opt
 		self.wavelength = np.dot(wavelength,u.angstrom)
 		self.seeing = seeing * u.arcsec
 		self.slit_size = slit_size * u.arcsec
 		self.moon_days = moon_days
+		self.delta_lambda_default = edl.dld[0] * (u.meter**2) # default low res
 		# squelch
 		try:
 			sss = self.sss
@@ -26,15 +30,33 @@ class simulate:
 			self.sss = False
 
 
+
+	# grating opt
+	def grating_opt(self,_grating_opt=None):
+		try:
+			if (_grating_opt == None):
+				_grating_opt = self.grating_opt # public to private
+			else:
+				pass # use public as private
+		except:
+			if (_grating_opt != None):
+				if (_grating_opt.lower() == 'low'):
+					self.grating_opt = _grating_opt # update public
+					self.delta_lambda_default = edl.dld[0] * (u.meter**2)
+				elif (_grating_opt.lower() == 'high'):
+					self.grating_opt = _grating_opt # update public
+					self.delta_lambda_default = edl.dld[1] * (u.meter**2)
+				else:
+					print('[ error ] : You must specify a valid grating mode!\nOptions are: \'high\' and \'low\' (default)')
+			else:
+				pass			
+
+
 	# get object file
 	def objectfile(self):
 		try:
-			# get custom pandas dataframe
-			if isinstance(self.obj,pd.DataFrame):
-				obj_x = self.obj[self.obj.columns[0]] # defaults to x = column 0
-				obj_y = self.obj[self.obj.columns[1]] # defaults to y = column 1
-			# or collect requested data file
-			elif isinstance(self.obj,int):
+			# collect requested data file
+			if isinstance(self.obj,int):
 				obj_panda = pd.read_csv(os.path.join(edl.galaxy_path,edl.galaxy_files[self.obj]),sep='\s+',skiprows=1)
 				obj_x = obj_panda[obj_panda.columns[0]]
 				obj_y = obj_panda[obj_panda.columns[1]]
@@ -42,6 +64,13 @@ class simulate:
 				obj_panda = pd.read_csv(os.path.join(edl.galaxy_path,edl.galaxy_files[edl.galaxy_files.index(self.obj)]),sep='\s+',skiprows=1)
 				obj_x = obj_panda[obj_panda.columns[0]]
 				obj_y = obj_panda[obj_panda.columns[1]]
+			# get custom pandas dataframe
+			elif isinstance(self.obj,pandas.core.frame.DataFrame):
+				obj_x = self.obj[self.obj.columns[0]] # defaults to x = column 0
+				obj_y = self.obj[self.obj.columns[1]] # defaults to y = column 1
+
+			self.obj_x = obj_x
+			self.obj_y = obj_y
 		except:
 			print('[ error ] : You must supply an object (obj), either from our enumerated options, or a custom pandas dataframe.')
 
@@ -71,8 +100,8 @@ class simulate:
 			print('[ error ] : You must supply an filter (filter_opt), either from our enumerated options, or a custom pandas dataframe.')
 
 		lambda_a = np.dot(np.arange(lambda_min,lambda_max,0.1),u.angstrom)
-		obj_x = obj_x * (1 + self.redshift) # apply redshift
-		self.delta_lambda = self.delta_lambda_default * float(self.slit_size)/0.7
+		obj_x = self.obj_x * (1 + self.redshift) # apply redshift
+		self.delta_lambda = self.delta_lambda_default * self.slit_size.value/0.7
 		self.plot_step = self.wavelength[-1]-self.wavelength[-2]
 		if not self.sss:
 			print('[ info ] : Delta lambda: {} Angstrom\nBinned pixel scale: {} Angstrom/pixel'.format(self.delta_lambda,self.plot_step))
@@ -136,28 +165,6 @@ class simulate:
 				self.area = edl.area[1] * (u.meter**2)
 		except:
 			print('[ error ] : You must specify a valid number of mirrors!\nOptions are: 4 (first light) and 7 (full size)')
-
-
-	# grating opt
-	def grating_opt(self,_grating_opt=None):
-		try:
-			if (_grating_opt == None):
-				_grating_opt = self.grating_opt # public to private
-			else:
-				pass # use public as private
-		except:
-			if (_grating_opt != None):
-				if (_grating_opt.lower() == 'low'):
-					self.grating_opt = _grating_opt # update public
-					self.delta_lambda_default = edl.dld[0] * (u.meter**2)
-				elif (_grating_opt.lower() == 'high'):
-					self.grating_opt = _grating_opt # update public
-					self.delta_lambda_default = edl.dld[1] * (u.meter**2)
-				else:
-					pass # uh oh
-			else:
-				print('[ error ] : You must specify a valid grating mode!\nOptions are: \'high\' and \'low\'')
-
 
 
 	# magnitude system, vega or ab (default)
@@ -345,21 +352,22 @@ class simulate:
 #	def state(self,caller,command_index):
 #		if (caller == 0): # snr
 	def snr(self):
-		objectfile()
-		filterfile()
-		skyfile()
-		mirrors()
-		grating_opt()
-		magsys()
-		resample_dichroic()
-		resample_grating()
-		resample_ccd()
-		readnoise()
-		resample_flux()
-		signal()
-		noise()
-		calc_snr()
-		gen_err()
+		self.grating_opt()
+		self.objectfile()
+		self.filterfile()
+		self.skyfile()
+		self.mirrors()
+
+		self.magsys()
+		self.resample_dichroic()
+		self.resample_grating()
+		self.resample_ccd()
+		self.readnoise()
+		self.resample_flux()
+		self.signal()
+		self.noise()
+		self.calc_snr()
+		self.gen_err()
 		return self.red_snr, self.blue_snr
 
 
