@@ -32,10 +32,8 @@ filter_files = ['BesB.dat','BesI.dat','BesR.dat','BesU.dat','BesV.dat','g.dat','
 ''' assorted '''
 bin_options_int = [1,2,3,4]
 bin_options_str = ['1x1','2x2','3x3','4x4']
-keys = ['obj','obj_col_x','obj_col_y',
-		'filter_col_x','filter_col_y','atmo_ext',
-		'atmo_ext_col_x','atmo_ext_col_y','wavelength',
+keys = ['obj','atmo_ext','wavelength',
 		'filter_opt','magnitude','mag_sys_opt',
 		'grating_opt','redshift','exposure_time',
-		'seeing','slit_size','moon_day','plot_channel',
+		'seeing','slit_size','moon_days','plot_channel',
 		'telescope_mode','binx','sss']
