@@ -288,12 +288,6 @@ cds_noise = ColumnDataSource(dict(noise=[]))
 
 				omggg print(star_o5v.data[list(star_o5v.data)[0]])
 '''
-"""
-SpectRes: A fast spectral new_spec_wavs function.
-Copyright (C) 2017  A. C. Carnall
-GNU General Public License
-A couple custom mods for this application
-"""
 def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_sb3,galaxy_sb4=galaxy_sb4,galaxy_sb5=galaxy_sb5,galaxy_sb6=galaxy_sb6,galaxy_s0=galaxy_s0,galaxy_sa=galaxy_sa,
 				galaxy_sb=galaxy_sb,galaxy_sc=galaxy_sc,galaxy_bulge=galaxy_bulge,galaxy_ellipticals=galaxy_ellipticals,galaxy_lbg_all_flam=galaxy_lbg_all_flam,
 				star_o5v=star_o5v,star_b0v=star_b0v,star_b57v=star_b57v,star_a0v=star_a0v,star_a5v=star_a5v,star_f0v=star_f0v,
@@ -308,12 +302,12 @@ def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_s
 				widget_seeing=widget_seeing,widget_grating_types=widget_grating_types,widget_binned_pixel_scale=widget_binned_pixel_scale,widget_slit_width=widget_slit_width,
 				widget_wavelengths=widget_wavelengths):
 	print('[ETC] Call from ' + cb_obj.name) # for debugging
-	coating_efficiency = 0.8*0.98^14 # coefficient of the mirror plus 14 lens
+	coating_efficiency = 0.8*0.98^14 # coefficient of the mirror for 14 lens
 	h = const.h.value # planck's
 	c = const.c.value
 	cur_tab = tabs.active
 	if (cur_tab >= 0) && (cur_tab <= 2):
-		area = [368,222] # high/lo res, use widget_telescope_sizes.active to get current
+		area = [368,222] # high/low res, use widget_telescope_sizes.active to get current
 		delta_lambda = [1.4,3.73] # [high res,low res]
 		if widget_object_types.active is not None:
 			if widget_object_types.active is 0:

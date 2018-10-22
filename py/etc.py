@@ -13,7 +13,7 @@ from scipy.integrate import quad
 
 #obj,wavelength,filter_opt,magnitude,mag_sys_opt,grating_opt='LOW',redshift,exposure_time,seeing,slit_size,moon_days=0,plot_channel='BOTH',telescope_mode='FULL',binx=2,sss=False
 class simulate:
-	def __init__(self,obj,filter_opt,wavelength,seeing,slit_size,moon_days,redshift,**kwargs): # wavelength,obj,filter_opt,slit_size,moon_days,mag_sys_opt,seeing,redshift
+	def __init__(self,obj,filter_opt,wavelength,seeing,slit_size,moon_days,redshift,sss=False,**kwargs): # wavelength,obj,filter_opt,slit_size,moon_days,mag_sys_opt,seeing,redshift
 		self.__dict__ = dict(kwargs) # pick up any optionals
 		# required args
 		self.redshift = redshift
@@ -25,12 +25,6 @@ class simulate:
 		self.slit_size = slit_size # * u.arcsec
 		self.moon_days = moon_days
 		self.delta_lambda_default = edl.dld[0] # * (u.meter**2) # default low res
-		# subsiste sermonem statim
-		try:
-			sss = self.sss
-		except:
-			self.sss = False
-
 
 
 	# grating opt

@@ -3,6 +3,7 @@ ignore/
 util/__pycache__/
 py/data/
 py/__pycache__/
+_old_data/
 
 # Python files
 test3.py
