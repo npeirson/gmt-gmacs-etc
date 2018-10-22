@@ -1,10 +1,10 @@
 import os
 import math
-import itertools
+from itertools import count
 import numpy as np
 import pandas as pd
 import values as edl
-from spectres import spectres
+import spectres as spectres
 from astropy import units as u
 from astropy import constants as const
 from astropy.stats import gaussian_sigma_to_fwhm
@@ -25,7 +25,7 @@ class simulate:
 		self.slit_size = slit_size # * u.arcsec
 		self.moon_days = moon_days
 		self.delta_lambda_default = edl.dld[0] # * (u.meter**2) # default low res
-
+		self.sss = sss	
 
 	# grating opt
 	def grating_opt(self,_grating_opt=None):
@@ -273,7 +273,7 @@ class simulate:
 		#self._lambda = [self.lambda_a[i].to(u.meter) for i in range(self.lambda_a)] # convert to meter
 		self._lambda = np.divide(self.lambda_a,1e10)
 		# validate resampled flux
-		blanks = itertools.count(0)
+		blanks = count(0)
 		try:
 			for i in self.flux:
 				if (self.flux[i] == 0):

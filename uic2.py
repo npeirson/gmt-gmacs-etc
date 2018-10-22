@@ -344,43 +344,7 @@ def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_s
 
 
 	if (tabs.active == 0): # signal-to-noise
-
-		if (cb_obj.name == widget_object_types.name):
-			# handling stellar classification changes
-			if (widget_object_types.active == 0):
-				widget_types_types.disabled = False
-				widget_galaxy_type.disabled = True
-				widget_mag_type.disabled = False
-				print('[ETC] Object type: Stars')
-				# if something selected previously...
-				if (widget_types_types.value != None):
-					print('[ETC] Stellar classification: {}'.format(widget_types_types.value))
-
-			# handling galactic classification changes
-			else:
-				widget_types_types.disabled = True
-				widget_galaxy_type.disabled = False
-				widget_mag_type.disabled = True
-				print('[ETC] Object type: Galaxies')
-				# if something selected previously...
-				if (widget_galaxy_type.value != None):
-					print('[ETC] Galactic classification: {}'.format(widget_galaxy_type.value))
-
-		# a freshly selected galatic classification
-		if (cb_obj.name == widget_galaxy_type.name):
-			widget_galaxy_type.label = widget_galaxy_type.menu[widget_galaxy_type.value][0] # trust
-			# explicit TODO not explicit
-			gal_files_list = [galaxy_sb1,galaxy_sb2,galaxy_sb3,galaxy_sb4,galaxy_sb5,galaxy_sb6,galaxy_s0,
-								galaxy_sa,galaxy_sb,galaxy_sc,galaxy_bulge,galaxy_ellipticals,galaxy_lbg_all_flam]
-			_gal_file = gal_files_list[widget_galaxy_type.value[1]]
-
-		# a freshly selected stellar classification
-		if (cb_obj.name == widget_types_types.name):
-			widget_types_types.label = widget_types_types.value
-			print('[ETC] Star type: {}'.format(widget_types_types.label))
-			
 	#cds_snr_red
-		# noise
 		if (cb_obj.name == widget_slit_width.name) or (cb_obj.name == widget_binned_pixel_scale.name) or (cb_obj.name == widget_grating_types.name) or (cb_obj.name == widget_seeing.name):
 			slit_size = widget_slit_width.value
 			seeing = widget_seeing.value
@@ -410,15 +374,15 @@ def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_s
 		# signal
 		red_total_eff_noise = cds_dichroic_red.data['yr'] * cds_grating_red.data['yr'] * cds_ccd_red.data['yr'] * coating_efficiency
 		red_noise = cds_sky_red.data['xr']Sfjaldsafsdf
-		counts_noise_red*red_total_eff_noise
-		blue_total_eff_noise=blue_dichro*blue_grating*blue_ccd*coating_eff
-		blue_noise=counts_noise_blue*blue_total_eff_noise
+		counts_noise_red * red_total_eff_noise
+		blue_total_eff_noise = blue_dichro * blue_grating * blue_ccd * coating_eff
+		blue_noise = counts_noise_blue * blue_total_eff_noise
 		'''
 		Calculate Signal
 		blue_total_eff=blue_dichro.*blue_grating.*blue_ccd.*coating_eff.*extinction;
 		blue_signal=counts_blue*percent.*blue_total_eff;
 		red_total_eff=red_dichro.*red_grating.*red_ccd.*coating_eff.*extinction;
-		red_signal=counts_red*percent.*red_total_eff;
+		red_signal=counts_red*percent .* red_total_eff;
 	
 		'''
 		if (cb_obj.name == widget_wavelengths.name):
@@ -440,7 +404,7 @@ def fun_callback(galaxy_sb1=galaxy_sb1,galaxy_sb2=galaxy_sb2,galaxy_sb3=galaxy_s
 			filter_lhs[1:-1] = (new_spec_wavs[1:] + new_spec_wavs[:-1])/2
 			filter_widths[:-1] = filter_lhs[1:-1] - filter_lhs[:-2]
 			if filter_lhs[0] < spec_lhs[0] or filter_lhs[-1] > spec_lhs[-1]:
-				raise ValueError("spectres: The new wavelengths specified must fall within the range of the old wavelength values.")
+				raise ValueError("SpectRes: The new wavelengths specified must fall within the range of the old wavelength values.")
 		#b =  array.slice().map( function(row){ return row.slice(); });
 			resampled_fluxes = np.zeros(spec_fluxes[0].shape + new_spec_wavs.shape)
 			if spec_errs is not None:
