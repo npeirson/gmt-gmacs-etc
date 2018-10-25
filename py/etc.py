@@ -7,8 +7,9 @@ from spectres import spectres
 from astropy import units as u
 from astropy import constants as const
 from astropy.stats import gaussian_sigma_to_fwhm
-from astropy.convolution import convolve
-from scipy.integrate import quad
+from astropy.convolution import convolve, convolve_fft, Gaussian1DKernel
+from scipy.integrate import quad, quadrature
+
 
 #obj,wavelength,filter_opt,magnitude,mag_sys_opt,grating_opt='LOW',redshift,exposure_time,seeing,slit_size,moon_days=0,plot_channel='BOTH',telescope_mode='FULL',binx=2,sss=False
 class simulate:
@@ -19,13 +20,14 @@ class simulate:
 		self.redshift = redshift
 		self.obj = obj
 		self.filter_opt = filter_opt
-		self.wavelength = np.arange(8000,10000,0.5)
+		self.wavelength = np.arange(8000,10000,10)
 		self.telescope_mode = telescope_mode
 		self.seeing = seeing # * u.arcsec
 		self.slit_size = slit_size # * u.arcsec
 		self.moon_days = moon_days
 		self.delta_lambda_default = edl.dld[0] # * (u.meter**2) # default low res
 		self.sss = sss	
+
 
 	# grating opt
 	def grating_opt(self,_grating_opt=None):
@@ -51,13 +53,28 @@ class simulate:
 	# get object file
 	def objectfile(self):
 		try:
+			isinstance(self.object_type)
+		except:
+			self.object_type = 'stellar'
+
+		if (self.object_type.lower() == 'galaxy') or (self.object_type.lower() == 'galactic'):
+			folder_path = edl.galaxy_path
+			file_path = edl.galaxy_files
+			print('[ info ] : Object type: galactic')
+		else:
+			folder_path = edl.stellar_path
+			file_path = edl.stellar_files
+			print('[ info ] : Object type: stellar')
+
+		try:
 			# collect requested data file
 			if isinstance(self.obj,int):
-				obj_panda = pd.read_csv(os.path.join(edl.galaxy_path,edl.galaxy_files[self.obj]),sep='\s+',skiprows=1)
+				obj_panda = pd.read_csv(os.path.join(folder_path,file_path[self.obj]),sep='\s+',skiprows=1)
 				obj_x = obj_panda[obj_panda.columns[0]]
 				obj_y = obj_panda[obj_panda.columns[1]]
+				print('[ info ] : Model object: {}'.format(file_path[self.obj][:-4]))
 			elif isinstance(self.obj,str):
-				obj_panda = pd.read_csv(os.path.join(edl.galaxy_path,edl.galaxy_files[edl.galaxy_files.index(self.obj)]),sep='\s+',skiprows=1)
+				obj_panda = pd.read_csv(os.path.join(folder_path,file_path[file_path.index(self.obj)]),sep='\s+',skiprows=1)
 				obj_x = obj_panda[obj_panda.columns[0]]
 				obj_y = obj_panda[obj_panda.columns[1]]
 			# get custom pandas dataframe
@@ -65,8 +82,8 @@ class simulate:
 				obj_x = self.obj[self.obj.columns[0]] # defaults to x = column 0
 				obj_y = self.obj[self.obj.columns[1]] # defaults to y = column 1
 
-			self.obj_x = obj_x * (1 + self.redshift) # apply redshift
-			self.obj_y = obj_y
+			self.obj_x = np.dot(np.asarray(obj_x),(1 + self.redshift)) # apply redshift
+			self.obj_y = np.asarray(obj_y)
 		except:
 			print('[ error ] : You must supply an object (obj), either from our enumerated options, or a custom pandas dataframe.')
 
@@ -137,9 +154,9 @@ class simulate:
 		elif (int(_moon_day) == 14):
 			skyfile = pd.read_csv(os.path.join(edl.skyfiles_path,edl.skyfiles[4]),sep='\s+',skiprows=1)
 		# sky background unit conversions
-		self.sky_x = (np.dot(skyfile[skyfile.columns[0]],(u.micron).to(u.angstrom)))
-		self.sky_y = (np.dot(skyfile[skyfile.columns[1]],(1 / u.micron).to(1 / u.angstrom)))
-		self.old_res = self.sky_x[1] - self.sky_x[0]
+		self.sky_x = np.dot(skyfile[skyfile.columns[0]],10) # micron to Angstrom
+		self.sky_y = np.dot(skyfile[skyfile.columns[1]],10) # micron to Angstrom
+		self.old_res_sky = self.sky_x[1] - self.sky_x[0]
 
 
 	# area, permits string OR num mirrors
@@ -166,33 +183,14 @@ class simulate:
 
 
 	# resample dichroic transmission
-	def resample_dichroic(self,new_wavelength=None):
-		try:
-			if (new_wavelength == None):
-				new_wavelength = self.wavelength # use public
-			else:
-				pass
-		except:
-			if (new_wavelength != None): # use private
-				if (isinstance(new_wavelength,numpy.ndarray)):
-					if (len(new_wavelength) <= 20): # probably a mistake
-						print('[ error ] : Resampling dichroic transmission, new wavelength appears to be invalid. Perhaps you meant to specify start/end/step in a tuple?')
-					else:
-						self.wavelength = new_wavelength # update public
-				elif (isinstance(new_wavelength,tuple)):
-					if (len(new_wavelength) == 3):
-						new_wavelength = np.arange(new_wavelength[0],new_wavelength[1],new_wavelength[2]) # build new wavelength one from tuple
-						self.wavelength = new_wavelength # update public
-					else: # uh oh
-						print('[ error ] : Resampling dichroic transmission, tuple wavelength must be within valid ranges, and in format (start,stop,step).')
-
-			dichroic_panda = pd.read_csv(edl.dichroic_path,sep='\s+',skiprows=1)
-			dichro_x = np.asarray(dichroic_panda[dichroic_panda.columns[0]])
-			dichro_x = np.dot(dichro_x,10) # nm to Angstrom
-			dichro_y1 = np.asarray(dichroic_panda[dichroic_panda.columns[1]]) # reflectivity ... units? joule per square meter or something?
-			dichro_y2 = np.asarray(dichroic_panda[dichroic_panda.columns[2]]) # transmission
-			self.red_dichro = spectres(new_wavelength,dichro_x,dichro_y1)
-			self.blue_dichro = spectres(new_wavelength,dichro_x,dichro_y2)
+	def resample_dichroic(self):
+		dichroic_panda = pd.read_csv(edl.dichroic_path,sep='\s+',skiprows=1)
+		dichro_x = np.asarray(dichroic_panda[dichroic_panda.columns[0]])
+		dichro_x = np.dot(dichro_x,10) # nm to Angstrom
+		dichro_y1 = np.asarray(dichroic_panda[dichroic_panda.columns[1]]) # reflectivity ... units? joule per square meter or something?
+		dichro_y2 = np.asarray(dichroic_panda[dichroic_panda.columns[2]]) # transmission
+		self.red_dichro = spectres(self.wavelength,dichro_x,dichro_y1)
+		self.blue_dichro = spectres(self.wavelength,dichro_x,dichro_y2)
 			
 
 	# resample grating efficiency
@@ -205,7 +203,6 @@ class simulate:
 		grating_blue_y = np.dot(np.asarray(grating_panda_blue[grating_panda_blue.columns[1]]),10)
 		if (self.plot_channel == 'red'):
 			self.red_grating = spectres(self.wavelength,grating_red_x,grating_red_y)
-		if (self.plot_channel == 'blue'):
 			self.blue_grating = spectres(self.wavelength,grating_blue_x,grating_blue_y)
 
 
@@ -258,16 +255,13 @@ class simulate:
 
 	def resample_flux(self):
 		# resample flux
-		self.flux_a = spectres(self.wavelength,np.asarray(self.obj_x),np.asarray(self.obj_y))
-		#self.trans = spectres(self.lambda_a,np.asarray(self.filter_x),np.asarray(self.filter_y))
-		self.trans = spectres(self.wavelength,np.asarray(self.filter_x),np.asarray(self.filter_y))
+		self.flux_a = spectres(self.wavelength,self.obj_x,self.obj_y)
+		self.trans = np.trapz(np.asarray(self.filter_y),np.asarray(self.filter_x))
 		self.extinction = spectres(self.wavelength,np.asarray(self.atmo_ext[self.atmo_ext.columns[0]]),np.asarray(self.atmo_ext[self.atmo_ext.columns[1]]))
-		self.flux = self.flux_a
 		self.flux = np.dot(self.flux_a,1e10) # convert to cgs
 		self._lambda = np.divide(self.lambda_a,1e10) # convert to meters
 		# validate resampled flux
 		blanks = 0
-		self.ss_lambda = np.dot(np.asarray(self.obj_x),(1+self.redshift))
 		for i in range(self.flux.shape[0]):
 			if (self.flux[i] == 0):
 				blanks += 1
@@ -278,51 +272,70 @@ class simulate:
 			zero_per = blanks / len(self.flux) * 100 # percent of values that are zero
 			print('[ error ] : Due to template limitations, {}% of spectrum in this bandpass is zero. Change redshift and/or bandpass.'.format(zero_per))
 		else:
+			fluxtrans = np.dot(math.fsum(self.flux),self.trans)
+			extinction_l = np.dot(math.fsum(self.extinction),math.fsum(self._lambda))
 			if (self.mag_sys_opt.lower() == 'vega'):
 				vega_panda = pd.read_csv(edl.vega_file,sep='\s+',skiprows=1) # * u.jansky
-				flux_vega = np.dot(spectres(self.lambda_a,np.asarray(vega_panda[vega_panda.columns[0]]),np.asarray(vega_panda[vega_panda.columns[1]])),1e10) #.cgs
-				self.mag_model = -2.5 * math.log(math.fsum((self.flux*self.trans*self.extinction*self._lambda)),10)/math.fsum(flux_vega*self.trans*self.extinction*self._lambda) + 0.026 # assuming that vega is 0.026 mag in all bands
+				flux_vega = np.dot(spectres(self.lambda_a,np.asarray(vega_panda[vega_panda.columns[0]]),np.asarray(vega_panda[vega_panda.columns[1]])),1e10) #.cgs	
+				vegatrans = np.dot(math.fsum(self.vega),self.trans)
+				self.mag_model = np.add(np.dot(-2.5,np.log10(np.divide(np.dot(fluxtrans,extinction_l)),(np.dot(vegatrans,extinction_l)))),0.026) # assuming that vega is 0.026 mag in all bands
 			elif (self.mag_sys_opt.lower() == 'ab'):
-				#print('[ error ] : Attribute \'mag_sys_opt\' must be set! Include \'VEGA\' or \'AB\'')
-				self.mag_model = -48.60 - 2.5 * math.log((math.fsum((self.flux*self.trans*self.extinction*self._lambda))/math.fsum((self.trans*self._lambda*self.extinction*(const.c/(self._lambda**2))))),10) # zeropoint is 48.60
+				trans_l = np.dot(self.trans,math.fsum(self._lambda))
+				om_1 = np.divide(const.c.value,(np.square(self._lambda)))
+				om_2 = np.dot(trans_l,math.fsum(self.extinction))
+				om_3 = math.fsum(np.divide(np.dot(fluxtrans,extinction_l),np.dot(om_2,om_1)))
+				self.mag_model = np.subtract(-48.60,(np.dot(2.5,np.log10(om_3)))) # zeropoint is 48.60
 			# compare resampled flux to object's template.
 			self.del_mag = self.magnitude - self.mag_model # desired vs template
-			self.ss_flux = obj_y * 10 ** (-self.del_mag/2.5) # rescale
-
-			old_res = self.ss_lambda[2] - self.ss_lambda[1]
+			self.ss_flux = np.dot(self.flux,(10**(-self.del_mag/2.5))) # rescale
+			#except: print('[ error ] : Attribute \'mag_sys_opt\' must be set! Include \'VEGA\' or \'AB\'')
+			old_res = self.obj_x[2] - self.obj_x[1]
+			sigma = self.delta_lambda / gaussian_sigma_to_fwhm
+			self._x = np.arange(start=(-5*sigma),stop=(5*sigma),step=old_res)
+			funx_lambda = lambda x,sigma: np.dot((1/(sigma*(math.sqrt(2*math.pi)))),np.exp(np.divide(np.negative(np.square(x)),(2*sigma**2))))
+			funx = funx_lambda(self._x,sigma)
+			kernel = funx / np.trapz(funx)
+			print('[ info ] : Model resolution: {}\n[ info ] : Requested resolution: {}'.format(old_res,self.plot_step))
 			if (old_res < self.plot_step):
-				sigma = self.delta_lambda / gaussian_sigma_to_fwhm # delta_lambda is a scalar too
-				_x = np.arange(start=(-5*sigma),stop=(5*sigma),step=old_res) # therefore, this
-				funx = (1/(sigma*(math.sqrt(2*math.pi))))*math.exp(-_x**2/(2*sigma**2))
-				kernel = funx / np.trapz(funx)
-				self.ss_flux = spectres(kernel,self.obj_x,self.ss_flux)
-				#self.ss_flux = convolve(self.ss_flux,kernel,'fill')
+				self.ss_flux = convolve_fft(self.ss_flux,kernel)
 			else:
-				print('[ error ] : The object template resolution is lower than the instrument\'s resolution.')
+				self.ss_flux = convolve_fft(self.ss_flux,kernel) # lambda this later for callable response
+				print('[ error ] : The object template resolution is lower than the instrument\'s resolution. Reduce the requested resolution (plot_step).')
 
 
 	def signal(self):
-		# counts counts
+		# counts counts. hehe.
+		self.ss_lambda = np.linspace(self.obj_x[0],self.obj_x[-1],self.ss_flux.shape[0]) # interpolate this to match end thing
 		ts_flux = (spectres(self.wavelength,self.ss_lambda,self.ss_flux)) # * u.jansky
 		power = ((ts_flux * 1e-3) * self.area * self.exposure_time * self.plot_step) # should come out as joules
-		counts_counts = (power / ((const.h * const.c) / self.wavelength)) / 1e10
-		sigma = self.seeing / gaussian_sigma_to_fwhm
-		funx = lambda _x : (1/(sigma*(math.sqrt(2 * math.pi))) * math.exp(-_x**2 / (2 * sigma**2)))
-		self.percent = quad(funx,(-self.slit_size/2),(self.slit_size/2)) * quad(funx,(-self.seeing/2),(self.seeing/2)) # for signal calculation later
+		self.counts_counts = (power / ((const.h.value * const.c.value) / self.wavelength)) / 1e10
+		_sigma = self.seeing / gaussian_sigma_to_fwhm
+		lam_func = lambda x: np.dot((1/(_sigma*(math.sqrt(2*math.pi)))),np.exp(np.divide(np.negative(np.square(x)),(2*_sigma**2))))
+		self.percent,self.percent_err = np.square(quad(lam_func,(-self.slit_size/2),(self.slit_size/2)))
+		print(self.percent) # for signal calculation later
 		self.extension = (self.seeing * self.slit_size)
 		#mirror_bounce = apply 2
 		# final step
-		self.red_total_efficiency = (self.red_dichro * self.red_grating * self.red_ccd * edl.coating_efficiency * self.end_extinction)
-		self.blue_total_efficiency = (self.blue_dichro * self.blue_grating * self.blue_ccd * edl.coating_efficiency * self.end_extinction)
-		self.red_signal = (self.counts_counts * self.percent * self.red_total_efficiency)
-		self.blue_signal = (self.counts_counts * self.percent * self.blue_total_efficiency)
+		if (self.plot_channel.lower() == 'red'):			
+			self.red_total_efficiency = np.dot(np.dot(np.dot(self.red_dichro,self.red_grating),np.dot(self.red_ccd,self.end_extinction)),edl.coating_efficiency)
+			self.red_signal = np.dot(np.dot(self.counts_counts,self.percent),self.red_total_efficiency)
+		elif (self.plot_channel.lower() == 'blue'):
+			self.blue_total_efficiency = np.dot(np.dot(np.dot(self.blue_dichro,self.blue_grating),np.dot(self.blue_ccd,self.end_extinction)),edl.coating_efficiency)
+			self.blue_signal = np.dot(np.dot(self.counts_counts,self.percent),self.blue_total_efficiency)
+		else:
+			self.red_total_efficiency = np.dot(np.dot(np.dot(self.red_dichro,self.red_grating),np.dot(self.red_ccd,self.end_extinction)),edl.coating_efficiency)
+			self.red_signal = np.dot(np.dot(self.counts_counts,self.percent),self.red_total_efficiency)
+			self.blue_total_efficiency = np.dot(np.dot(np.dot(self.blue_dichro,self.blue_grating),np.dot(self.blue_ccd,self.end_extinction)),edl.coating_efficiency)
+			self.blue_signal = np.dot(np.dot(self.counts_counts,self.percent),self.blue_total_efficiency)
+
 
 
 	def noise(self):
 		# calculate noise
 		sigma = self.delta_lambda / gaussian_sigma_to_fwhm
-		_x = np.arange(start=(-5*sigma),stop=(5*sigma),step=old_res)
-		funx = (1/(sigma*(math.sqrt(2*math.pi))))*math.exp(-_x**2/(2*sigma**2))
+		_x = np.arange(start=(-5*sigma),stop=(5*sigma),step=self.old_res_sky)
+		funx_lambda = lambda x,sigma: np.dot((1/(sigma*(math.sqrt(2*math.pi)))),np.exp(np.divide(np.negative(np.square(x)),(2*sigma**2))))
+		funx = funx_lambda(_x,sigma)
 		kernel = funx / np.trapz(funx)
 		#self.sky_flux = convolve(self.sky_y,kernel,'fill') # * u.jansky
 		self.sky_flux = spectres(kernel,self.sky_x,self.sky_y) # * u.jansky
@@ -359,7 +372,6 @@ class simulate:
 		self.resample_ccd()
 		self.readnoise()
 		self.resample_flux()
-		self.magsys()
 		self.signal()
 		self.noise()
 		self.calc_snr()
