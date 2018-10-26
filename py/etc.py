@@ -9,7 +9,7 @@ from astropy import constants as const
 from astropy.stats import gaussian_sigma_to_fwhm
 from astropy.convolution import convolve, convolve_fft, Gaussian1DKernel
 from scipy.integrate import quad, quadrature
-
+	
 
 #obj,wavelength,filter_opt,magnitude,mag_sys_opt,grating_opt='LOW',redshift,exposure_time,seeing,slit_size,moon_days=0,plot_channel='BOTH',telescope_mode='FULL',binx=2,sss=False
 class simulate:
@@ -115,7 +115,7 @@ class simulate:
 			self.delta_lambda = self.delta_lambda_default * self.slit_size/0.7
 			self.plot_step = self.wavelength[-1] - self.wavelength[-2]
 			if self.sss:
-				print('[ info ] : Delta lambda: {} Angstrom\n[ info ] : Binned pixel scale: {} Angstrom/pixel'.format(self.delta_lambda,self.plot_step))
+				print('[ info ] : Binned pixel scale: {} Angstrom/pixel'.format(self.plot_step))
 		
 		except:
 			print('[ error ] : You must supply an filter (filter_opt), either from our enumerated options, or a custom pandas dataframe.')
@@ -154,9 +154,9 @@ class simulate:
 		elif (int(_moon_day) == 14):
 			skyfile = pd.read_csv(os.path.join(edl.skyfiles_path,edl.skyfiles[4]),sep='\s+',skiprows=1)
 		# sky background unit conversions
-		self.sky_x = np.dot(skyfile[skyfile.columns[0]],10) # micron to Angstrom
-		self.sky_y = np.dot(skyfile[skyfile.columns[1]],10) # micron to Angstrom
-		self.old_res_sky = self.sky_x[1] - self.sky_x[0]
+		self.sky_x = np.dot(np.asarray(skyfile[skyfile.columns[0]]),10000) # micron to Angstrom
+		self.sky_y = np.divide(np.asarray(skyfile[skyfile.columns[1]]),10000) # micron to Angstrom
+		self.old_res_sky = self.sky_x[2] - self.sky_x[1]
 
 
 	# area, permits string OR num mirrors
@@ -198,9 +198,9 @@ class simulate:
 		grating_panda_red = pd.read_csv(edl.grating_path[0],sep='\s+')
 		grating_panda_blue = pd.read_csv(edl.grating_path[1],sep='\s+')
 		grating_red_x = np.dot(np.asarray(grating_panda_red[grating_panda_red.columns[0]]),10)
-		grating_red_y = np.dot(np.asarray(grating_panda_red[grating_panda_red.columns[1]]),10)
+		grating_red_y = np.asarray(grating_panda_red[grating_panda_red.columns[1]])
 		grating_blue_x = np.dot(np.asarray(grating_panda_blue[grating_panda_blue.columns[0]]),10)
-		grating_blue_y = np.dot(np.asarray(grating_panda_blue[grating_panda_blue.columns[1]]),10)
+		grating_blue_y = np.asarray(grating_panda_blue[grating_panda_blue.columns[1]])
 		if (self.plot_channel == 'red'):
 			self.red_grating = spectres(self.wavelength,grating_red_x,grating_red_y)
 			self.blue_grating = spectres(self.wavelength,grating_blue_x,grating_blue_y)
@@ -215,9 +215,9 @@ class simulate:
 			ccd_panda_red = pd.read_csv(edl.ccd_path[0],sep='\s+',skiprows=1)
 			ccd_panda_blue = pd.read_csv(edl.ccd_path[1],sep='\s+',skiprows=1)
 			ccd_red_x = np.dot(np.asarray(ccd_panda_red[ccd_panda_red.columns[0]]),10)
-			ccd_red_y = np.dot(np.asarray(ccd_panda_red[ccd_panda_red.columns[1]]),10)
+			ccd_red_y = np.asarray(ccd_panda_red[ccd_panda_red.columns[1]])
 			ccd_blue_x = np.dot(np.asarray(ccd_panda_blue[ccd_panda_blue.columns[0]]),10)
-			ccd_blue_y = np.dot(np.asarray(ccd_panda_blue[ccd_panda_blue.columns[3]]),10)
+			ccd_blue_y = np.asarray(ccd_panda_blue[ccd_panda_blue.columns[3]])
 			self.red_ccd = spectres(self.wavelength,ccd_red_x,ccd_red_y)
 			self.blue_ccd = spectres(self.wavelength,ccd_blue_x,ccd_blue_y)
 
@@ -250,7 +250,7 @@ class simulate:
 		self.readnoise = math.ceil(self.rn * self.spectral_resolution * self.spatial_resolution / (self.bin_size**2))
 		if not self.sss:
 			print('[ info ] : Binning ({}x{})'.format(self.bin_size,self.bin_size))
-			print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(self.extent,self.npix,self.spectral_resolution,self.spatial_resolution))
+			print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(self.extent,int(math.ceil(self.npix)),self.spectral_resolution,self.spatial_resolution))
 
 
 	def resample_flux(self):
@@ -305,14 +305,20 @@ class simulate:
 
 	def signal(self):
 		# counts counts. hehe.
-		self.ss_lambda = np.linspace(self.obj_x[0],self.obj_x[-1],self.ss_flux.shape[0]) # interpolate this to match end thing
-		ts_flux = (spectres(self.wavelength,self.ss_lambda,self.ss_flux)) # * u.jansky
-		power = ((ts_flux * 1e-3) * self.area * self.exposure_time * self.plot_step) # should come out as joules
-		self.counts_counts = (power / ((const.h.value * const.c.value) / self.wavelength)) / 1e10
+		lower_lim = math.floor(self._lambda[0] if self._lambda[0] > self.wavelength[0] else self.wavelength[0])
+		upper_lim = math.ceil(self._lambda[-1] if self._lambda[-1] > self.wavelength[-1] else self.wavelength[-1])
+		self.ss_lambda = np.linspace(lower_lim,upper_lim,self.ss_flux.shape[0]) # interpolate this to match end thing
+		ts_flux = (spectres(self.ss_lambda,self._lambda,self.ss_flux)) # * u.jansky
+		power = (ts_flux * self.area * self.exposure_time * self.plot_step) # should come out as joules
+		self.counts_counts = np.divide((np.divide(power,(np.divide((const.h.value * const.c.value),self.wavelength)))),1e10)
+		#self.counts_counts = (power / ((const.h.value * const.c.value) / self.wavelength)) / 1e10
 		_sigma = self.seeing / gaussian_sigma_to_fwhm
-		lam_func = lambda x: np.dot((1/(_sigma*(math.sqrt(2*math.pi)))),np.exp(np.divide(np.negative(np.square(x)),(2*_sigma**2))))
-		self.percent,self.percent_err = np.square(quad(lam_func,(-self.slit_size/2),(self.slit_size/2)))
-		print(self.percent) # for signal calculation later
+		lam_func = lambda x: np.dot((1/(_sigma*(math.sqrt(2*math.pi)))),np.exp((np.divide(np.negative(np.square(x)),(2*_sigma**2)))))
+		percent_u,percent_err_u = quad(lam_func,(-self.slit_size/2),(self.slit_size/2))
+		percent_l,percent_err_l = quad(lam_func,(-self.seeing/2),(self.seeing/2))
+		self.percent = percent_u * percent_l # can use error if you add it later...
+		if not self.sss:
+			print('[ info ] : Signal transmission: {0:.2f}%'.format(self.percent*100)) # for signal calculation later
 		self.extension = (self.seeing * self.slit_size)
 		#mirror_bounce = apply 2
 		# final step
@@ -334,12 +340,15 @@ class simulate:
 		# calculate noise
 		sigma = self.delta_lambda / gaussian_sigma_to_fwhm
 		_x = np.arange(start=(-5*sigma),stop=(5*sigma),step=self.old_res_sky)
-		funx_lambda = lambda x,sigma: np.dot((1/(sigma*(math.sqrt(2*math.pi)))),np.exp(np.divide(np.negative(np.square(x)),(2*sigma**2))))
-		funx = funx_lambda(_x,sigma)
+		funx_lambda = lambda x: np.dot((1/(sigma*(math.sqrt(2*math.pi)))),np.exp((np.divide(np.negative(np.square(x)),(2*sigma**2)))))
+		funx = funx_lambda(_x)
 		kernel = funx / np.trapz(funx)
-		#self.sky_flux = convolve(self.sky_y,kernel,'fill') # * u.jansky
-		self.sky_flux = spectres(kernel,self.sky_x,self.sky_y) # * u.jansky
-		self.counts_noise = (self.sky_flux * extension * self.area) # number of photons
+		#self.sky_flux = convolve_fft(self.sky_x,kernel) # * u.jansky
+		self.sky_flux = spectres(self.ss_lambda,self.sky_x,self.sky_y) # * u.jansky
+		#self.sky_flux = spectres(kernel,self.sky_x,self.sky_y) # * u.jansky
+		
+		self.counts_noise = (self.sky_flux * self.extension * self.area * self.exposure_time * self.plot_step) # number of photons
+
 		# final step
 		self.red_total_efficiency_noise = (self.red_dichro * self.red_grating * self.red_ccd * edl.coating_efficiency)
 		self.blue_total_efficiency_noise = (self.blue_dichro * self.blue_grating * self.blue_ccd * edl.coating_efficiency)
@@ -349,14 +358,24 @@ class simulate:
 
 	# signal/noise ratio
 	def calc_snr(self):
-		self.red_snr = (self.red_signal / np.sqrt(red_signal + red_noise + (self.readnoise**2)))
-		self.blue_snr = (self.blue_signal / np.sqrt(blue_signal + blue_noise + (self.readnoise**2)))
+		if (self.plot_channel.lower() == 'red'):
+			self.red_snr = (self.red_signal / np.sqrt(self.red_signal + self.red_noise + (self.readnoise**2)))
+		elif (self.plot_channel.lower() == 'blue'):
+			self.blue_snr = (self.blue_signal / np.sqrt(self.blue_signal + self.blue_noise + (self.readnoise**2)))
+		else:
+			self.red_snr = (self.red_signal / np.sqrt(self.red_signal + self.red_noise + (self.readnoise**2)))
+			self.blue_snr = (self.blue_signal / np.sqrt(self.blue_signal + self.blue_noise + (self.readnoise**2)))
 
 
 	# generate error based on signal/noise ratio
 	def gen_err(self):
-		self.e_norm_r = np.random.normal(loc=0, scale=(np.sqrt(self.red_signal + self.red_noise)),size=len(self.red_snr))
-		self.e_norm_b = np.random.normal(loc=0, scale=(np.sqrt(self.blue_signal + self.blue_noise)),size=len(self.blue_snr))
+		if (self.plot_channel.lower() == 'red'):
+			self.e_norm_r = np.random.normal(loc=0, scale=(np.sqrt(self.red_signal + self.red_noise)),size=len(self.red_snr))
+		elif (self.plot_channel.lower() == 'blue'):
+			self.e_norm_b = np.random.normal(loc=0, scale=(np.sqrt(self.blue_signal + self.blue_noise)),size=len(self.blue_snr))
+		else:
+			self.e_norm_r = np.random.normal(loc=0, scale=(np.sqrt(self.red_signal + self.red_noise)),size=len(self.red_snr))
+			self.e_norm_b = np.random.normal(loc=0, scale=(np.sqrt(self.blue_signal + self.blue_noise)),size=len(self.blue_snr))
 
 #	def state(self,caller,command_index):
 #		if (caller == 0): # snr
@@ -376,7 +395,14 @@ class simulate:
 		self.noise()
 		self.calc_snr()
 		self.gen_err()
-		return self.red_snr, self.blue_snr
+		if not self.sss:
+			print('[ example ] : Signal/Noise Ratio: signal / sqrt(signal + noise + readnoise^2) = {} / sqrt({} + {} + {}) = {}'.format(self.red_signal[1],self.red_signal[1],self.red_noise[1],self.readnoise**2,np.sqrt(np.add((self.red_signal[1] + self.red_noise[1]),self.readnoise**2))))
+		if (self.plot_channel.lower() == 'red'):
+			return self.red_snr
+		elif (self.plot_channel.lower() == 'blue'):
+			return self.blue_snr
+		else:
+			return self.red_snr, self.blue_snr
 
 
 	def obs_spec(self,noise=True):
