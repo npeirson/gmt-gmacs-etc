@@ -168,18 +168,36 @@ atmo_ext_y = atmo_ext[1]
 # mirror bouncing, apply twice
 mirror = spectres(wavelength,mirror_file[0]*10,mirror_file[1])
 
+# read noise
+spectral_resolution = math.ceil((slit_size/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer
+spatial_resolution = math.ceil((seeing/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer 
+extent = seeing * slit_size
+npix = extent/(0.7/12)**2
+try:
+	isinstance(bin_size,int)
+except:
+	bin_size = edl.bin_options_int[edl.bin_options_default_index] # default 2x2 binning
+
+rn = edl.rn_default
+if (bin_size > 0) and (bin_size < 5):
+	print('[ info ] : Pixel binning: ({}x{})'.format(bin_size,bin_size))
+	readnoise = math.ceil(self.rn * spectral_resolution * spatial_resolution / (bin_size**2))
+	print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(self.extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
+else:
+	raise ValueError('{} Invalid pixel binning option ({})'.format(string_prefix,bin_size))
+
 
 ''' calculations '''
 
 # signal
-blue_total_eff = np.dot(np.dot(blue_dichro, blue_grating), (blue_ccd * (coating_eff * extinction)))
-red_total_eff = np.dot(np.dot(red_dichro, red_grating), (red_ccd * (coating_eff * extinction)))
+blue_total_eff = np.dot(np.dot(blue_dichro,blue_grating),np.dot((blue_ccd * (coating_eff * extinction)),np.square(mirror)))
+red_total_eff = np.dot(np.dot(red_dichro,red_grating),np.dot((red_ccd * (coating_eff * extinction)),np.square(mirror)))
 blue_signal = np.dot((counts * percent), blue_total_eff)
 red_signal = np.dot((counts * percent), red_total_eff)
 
 # noise
-blue_total_eff_noise = np.dot(np.dot(blue_dichro,blue_grating),(blue_ccd * coating_eff))
-red_total_eff_noise = np.dot(np.dot(red_dichro,red_grating),(red_ccd * coating_eff))
+blue_total_eff_noise = np.dot((np.dot(np.dot(blue_dichro,blue_grating)),(np.dot(blue_ccd,np.square(mirror)) * coating_eff)))
+red_total_eff_noise = np.dot((np.dot(np.dot(red_dichro,red_grating)),(np.dot(red_ccd,np.square(mirror)) * coating_eff)))
 blue_noise = np.dot(counts_noise * blue_total_eff_noise)
 red_noise = np.dot(counts_noise * red_total_eff_noise)
 
