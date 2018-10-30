@@ -305,10 +305,21 @@ class simulate:
 
 	def signal(self):
 		# counts counts. hehe.
-		lower_lim = math.floor(self._lambda[0] if self._lambda[0] > self.wavelength[0] else self.wavelength[0])
-		upper_lim = math.ceil(self._lambda[-1] if self._lambda[-1] > self.wavelength[-1] else self.wavelength[-1])
+		lower_lim = math.floor(self._lambda[0])
+		upper_lim = math.ceil(self._lambda[0])
+		if (lower_lim < self.wavelength[0]):
+			lower_lim = self.wavelength[0]
+		if (upper_lim > self.wavelength[-1]):
+			upper_lim = self.wavelength[-1]
 		self.ss_lambda = np.linspace(lower_lim,upper_lim,self.ss_flux.shape[0]) # interpolate this to match end thing
-		ts_flux = (spectres(self.ss_lambda,self._lambda,self.ss_flux)) # * u.jansky
+		print(self.wavelength[0])
+		print(self.wavelength[-1])
+		print(self._lambda[0])
+		print(self._lambda[-1])
+		print(self.ss_lambda[0])
+		print(self.ss_lambda[-1])
+
+		#ts_flux = (spectres(self.wavelength,self.ss_lambda,self.ss_flux)) # * u.jansky
 		power = (ts_flux * self.area * self.exposure_time * self.plot_step) # should come out as joules
 		self.counts_counts = np.divide((np.divide(power,(np.divide((const.h.value * const.c.value),self.wavelength)))),1e10)
 		#self.counts_counts = (power / ((const.h.value * const.c.value) / self.wavelength)) / 1e10
