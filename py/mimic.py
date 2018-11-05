@@ -4,13 +4,13 @@ import numpy as np
 import values as edl
 import datahandler as dh
 from spectres import spectres
-from scipy import interpolate
+from scipy import interpolate, integrate
 from astropy import constants as const
 from astropy.convolution import convolve, convolve_fft
 from astropy.stats import gaussian_sigma_to_fwhm
 
 
-''' stuff to move '''
+''' stuff imported by datahandler '''
 galaxyfiles = [[dh.sb1_x,dh.sb1_y],[dh.sb2_x,dh.sb2_y],[dh.sb3_x,dh.sb3_y],[dh.sb4_x,dh.sb4_y],[dh.sb5_x,dh.sb5_y],
 				[dh.sb6_x,dh.sb6_y],[dh.s0_x,dh.s0_y],[dh.sa_x,dh.sa_y],[dh.sb_x,dh.sb_y],[dh.sc_x,dh.sc_y],
 				[dh.bulge_x,dh.bulge_y],[dh.ellipticals_x,dh.ellipticals_y],[dh.lbg_all_flam_x,dh.lbg_all_flam_y]]
@@ -24,9 +24,11 @@ filterfiles = [[dh.filter_photonux_x,dh.filter_photonux_y],[dh.filter_photonb_x,
 				[dh.filter_r_x,dh.filter_r_y],[dh.filter_i_x,dh.filter_i_y],[dh.filter_z_x,dh.filter_z_y]]
 skyfiles = [[dh.skyfile_00d_x,dh.skyfile_00d_y],[dh.skyfile_03d_x,dh.skyfile_03d_y],[dh.skyfile_07d_x,dh.skyfile_07d_y],
 			[dh.skyfile_10d_x,dh.skyfile_10d_y],[dh.skyfile_14d_x,dh.skyfile_14d_y]]
-atmo_ext_x = dh.atmo_ext_x
-atmo_ext_y = dh.atmo_ext_y
-
+dichroic_x,dichroic_y1,dichroic_y2 = dh.dichroic_x,dh.dichroic_y1,dh.dichroic_y2
+grating1,grating2 = [dh.grating_blue_x,dh.grating_blue_y],[dh.grating_red_x,dh.grating_red_y]
+ccd1,ccd2 = [dh.ccd_blue_x,dh.ccd_blue_y],[dh.ccd_red_x,dh.ccd_red_y]
+atmo_ext_x,atmo_ext_y = dh.atmo_ext_x,dh.atmo_ext_y
+mirror_file_x,mirror_file_y = dh.mirror_file[0]*10,dh.mirror_file[1]
 
 ''' constants '''
 
@@ -165,12 +167,6 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 			percent_zeros = (num_zeros / flux.shape[0]) * 100
 			print('{}% of this bandpass has zero flux'.format(percent_zeros))
 
-
-	print(wavelength.shape[0]) # 716
-	print(extinction.shape[0]) # 185
-	print(_lambda.shape[0])	# 185
-	print(trans.shape[0]) # 75
-
 	if (mag_sys_opt == 'vega'):
 		flux_vega = spectres(wavelength,vega[0],vega[1])
 		mag_model = -2.5 * np.log10(np.divide(math.fsum(flux.dot(extinction).dot(_lambda) * trans[1]),math.fsum(flux_vega.dot(trans).dot(_lambda) * extinction[1]))) + 0.03
@@ -187,8 +183,6 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 
 
 star_x, star_y = mag_cal(wavelength=wavelength,selected_filter=selected_filter,mag_sys_opt=mag_sys_opt,object_type=object_type,redshift=redshift,mag=magnitude)
-print(star_x.shape[0])
-print(star_y.shape[0])
 old_res = star_x[2] - star_x[1]
 if (old_res < plot_step):
 	flux_y = spectres(wavelength,star_x,star_y)
@@ -204,8 +198,9 @@ counts = np.divide(np.divide(power,np.divide((const.h.value * const.c.value),wav
 
 # seeing
 _sigma = seeing / gaussian_sigma_to_fwhm
-percent_u,percent_err_u = np.trapz(funx,(-self.slit_size/2),(self.slit_size/2))
-percent_l,percent_err_l = np.trapz(funx,(-self.seeing/2),(self.seeing/2))
+funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.dot(np.square(_sigma),2))))
+percent_u,percent_err_u = integrate.quad(funx,(-slit_size/2),(slit_size/2))
+percent_l,percent_err_l = integrate.quad(funx,(-seeing/2),(seeing/2))
 percent = percent_u * percent_l # can use error if you add it later...
 extension = seeing * slit_size
 
@@ -221,16 +216,16 @@ sky_flux = spectres(wavelength,sky_x,sky_y)
 counts_noise = np.dot(np.dot(sky_flux,extension),(area*exp_time*plot_step))
 
 # dichroic
-#dichro_x = dichro[0] * 10
-#dichro_y1 = dichro[1]
-#dichro_y2 = dichro[2]
 if (channel is 'blue') or (channel is 'both'):
-	blue_dichro = spectres(wavelength,dichro_x,dichro_y1)
+	blue_dichro = spectres(wavelength,dichroic_x,dichroic_y1)
 if (channel is 'red') or (channel is 'both'):
-	red_dichro = spectres(wavelength,dichro_x,dichro_y2)
+	print('wavelength: shape is {}, first is {}, last is {}, step is {}'.format(wavelength.shape[0],wavelength[0],wavelength[-1],(wavelength[2] - wavelength[1])))
+	print('dichroic_x: shape is {}, first is {}, last is {}, step is {}'.format(dichroic_x.shape[0],dichroic_x[0],dichroic_x[-1],(dichroic_x[2] - dichroic_x[1])))
+	red_dichro = spectres(wavelength,dichroic_x,dichroic_y2)
 
 # grating
 if (channel is 'blue') or (channel is 'both'):
+	
 	blue_grating = spectres(wavelength,(grating1[0]*10),grating1[1])
 if (channel is 'red') or (channel is 'both'):
 	red_grating = spectres(wavelength,(grating2[0]*10),grating2[1])
@@ -241,13 +236,9 @@ if (channel is 'blue') or (channel is 'both'):
 if (channel is 'red') or (channel is 'both'):
 	red_ccd = spectres(wavelength,(ccd2[0]*10),ccd2[1])
 
-# atmospheric extinction
-# should already be globals
-# atmo_ext_x = atmo_ext[0]
-# atmo_ext_y = atmo_ext[1]
-
 # mirror bouncing, apply twice
-mirror = spectres(wavelength,mirror_file[0]*10,mirror_file[1])
+print('mirror: shape is {}, first is {}, last is {}, step is {}'.format(mirror_file_x.shape[0],mirror_file_x[0],mirror_file_x[-1],(mirror_file_x[2] - mirror_file_x[1])))
+mirror = spectres(wavelength,mirror_file_x,mirror_file_y)
 
 # read noise
 spectral_resolution = math.ceil((slit_size/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer
@@ -262,11 +253,12 @@ except:
 rn = edl.rn_default
 if (bin_size > 0) and (bin_size < 5):
 	print('[ info ] : Pixel binning: ({}x{})'.format(bin_size,bin_size))
-	readnoise = math.ceil(self.rn * spectral_resolution * spatial_resolution / (bin_size**2))
-	print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(self.extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
+	readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (bin_size**2))
+	print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
 else:
 	raise ValueError('{} Invalid pixel binning option ({})'.format(string_prefix,bin_size))
 
+extinction = spectres(wavelength,atmo_ext_x,atmo_ext_y) # since not passed from function, just use global in real version
 
 ''' calculations '''
 
@@ -275,7 +267,7 @@ if (channel is 'blue') or (channel is 'both'):
 	blue_total_eff = np.dot(np.dot(blue_dichro,blue_grating),np.dot((blue_ccd * (coating_eff * extinction)),np.square(mirror)))
 	blue_signal = np.dot((counts * percent), blue_total_eff)
 if (channel is 'red') or (channel is 'both'):
-	red_total_eff = np.dot(np.dot(red_dichro,red_grating),np.dot((red_ccd * (coating_eff * extinction)),np.square(mirror)))
+	red_total_eff = np.dot(np.dot(red_dichro,red_grating),np.dot((red_ccd * (extinction * coating_eff)),np.square(mirror)))
 	red_signal = np.dot((counts * percent), red_total_eff)
 
 # noise
@@ -283,7 +275,7 @@ if (channel is 'blue') or (channel is 'both'):
 	blue_total_eff_noise = np.dot((np.dot(np.dot(blue_dichro,blue_grating)),(np.dot(blue_ccd,np.square(mirror)) * coating_eff)))
 	blue_noise = np.dot(counts_noise * blue_total_eff_noise)
 if (channel is 'red') or (channel is 'both'):
-	red_total_eff_noise = np.dot((np.dot(np.dot(red_dichro,red_grating)),(np.dot(red_ccd,np.square(mirror)) * coating_eff)))
+	red_total_eff_noise = np.dot((np.dot(np.dot(red_dichro,red_grating)),(red_ccd,np.square(mirror)) * coating_eff)) #HERERHERAJLSKDFJLKJ
 	red_noise = np.dot(counts_noise * red_total_eff_noise)
 
 if (channel is 'blue') or (channel is 'both'):

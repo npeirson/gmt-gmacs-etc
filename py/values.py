@@ -25,6 +25,7 @@ dichroic_path = 'data/dichroic5577.txt'
 grating_path = ['data/grating_red_low_315-1100.txt','data/grating_blue_low_315-1100.txt']
 ccd_path = ['data/e2v-astro-multi-2-DD.txt','data/e2v_blue.txt']
 vega_file = 'data/alpha_lyr_stis_005.ascii'
+mirror_file = 'data/mirror_300-1200nm.txt'
 galaxy_files = ['SB1','SB2','SB3','SB4','SB5','SB6','S0','Sa','Sb','Sc','bulge','ellipticals','lbg_all_flam']
 stellar_files = ['o5v.dat','b0v.dat','b57v.dat','a0v.dat','a5v.dat','f0v.dat','g0v.dat','g5v.dat','k0v.dat','k5v.dat','m0v.dat','m5v.dat']
 skyfiles = ['00d_315-1200nm.csv','03d_315-1200nm.csv','07d_315-1200nm.csv','10d_315-1200nm.csv','14d_315-1200nm.csv']
