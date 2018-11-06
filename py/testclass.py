@@ -1,5 +1,7 @@
 # this uses a caller singleton and enumerated caller-association groups to update only necessary data.
-# the else statement catches errors. I'll add a big wavelength descrimination system momentarily.
+# the else statement catches errors and wavelength changes.
+
+import values as edl
 
 class simulate:
 
@@ -10,9 +12,9 @@ class simulate:
 	''' tier 0 '''
 
 	def refresh(self,caller,tabs=tabs): # default cb_obj as immutable
-		if caller in signal_components:
+		if caller in edl.signal_components:
 			recalculate_signal(caller)
-		if caller in noise_components:
+		if caller in edl.noise_components:
 			recalculate_noise(caller)
 		else:
 			recalculate_signal(caller)
@@ -39,20 +41,20 @@ class simulate:
 	''' tier 1 '''
 
 	def recalculate_signal(self,caller):
-		if caller in counts_components:
+		if caller in edl.counts_components:
 			pass # recalc counts stuff
-		elif caller in percent_components:
+		elif caller in edl.percent_components:
 			pass # recalc percent stuff
-		elif caller in efficiency_components:
+		elif caller in edl.efficiency_components:
 			pass # recalc efficiency stuff
 		else:
 			pass # recalc all stuff
 
 
 	def recalculate_noise(self,caller):
-		if caller in counts_noise_components:
+		if caller in edl.counts_noise_components:
 			pass # recalc counts noise stuff
-		elif caller in efficiency_noise_components:
+		elif caller in edl.efficiency_noise_components:
 			pass # recalc total efficiency noise stuff
 
 

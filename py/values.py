@@ -32,11 +32,26 @@ skyfiles = ['00d_315-1200nm.csv','03d_315-1200nm.csv','07d_315-1200nm.csv','10d_
 #filter_files = ['BesB.dat','BesI.dat','BesR.dat','BesU.dat','BesV.dat','g.dat','i.dat','photonb.dat','photonI.dat','photonR.dat','photonUX.dat','photonV.dat','r.dat','u.dat','z.dat']
 filter_files = ['photonUX.dat','photonB.dat','photonV.dat','photonR.dat','photonI.dat','u.dat','g.dat','r.dat','i.dat','z.dat']
 
-''' assorted '''
 bin_options_int = [1,2,3,4]
 bin_options_str = ['1x1','2x2','3x3','4x4']
+
+
+''' keychain '''
 keys = ['obj','atmo_ext','wavelength',
 		'filter_opt','magnitude','mag_sys_opt',
 		'grating_opt','redshift','exposure_time',
 		'seeing','slit_size','moon_days','plot_channel',
 		'telescope_mode','binx','sss']
+
+# tier 2
+counts_components = ['flux','area','exposure_time']
+counts_noise_components = ['slit_size','exposure_time']
+percent_components = ['seeing','slit_size']
+efficiency_components = ['grating_opt']
+efficincy_noise_components = ['grating_opt']
+
+# tier 1
+signal_components = np.unique(np.concatenate((counts_components,percent_components,efficiency_components),0))
+noise_components = np.unique(np.concatenate((counts_noise_components,efficincy_noise_components),0))
+
+
