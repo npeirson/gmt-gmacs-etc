@@ -4,11 +4,11 @@ import numpy as np
 import values as edl
 import datahandler as dh
 from spectres import spectres
+import matplotlib.pyplot as plt
 from scipy import interpolate, integrate
 from astropy import constants as const
 from astropy.convolution import convolve, convolve_fft
 from astropy.stats import gaussian_sigma_to_fwhm
-
 
 ''' stuff imported by datahandler '''
 galaxyfiles = [[dh.sb1_x,dh.sb1_y],[dh.sb2_x,dh.sb2_y],[dh.sb3_x,dh.sb3_y],[dh.sb4_x,dh.sb4_y],[dh.sb5_x,dh.sb5_y],
@@ -43,6 +43,7 @@ moon_days = 0
 grating_opt = 0
 telescope_mode = 'first'
 exp_time = 3600
+thing = 'snr'
 
 wavelength = np.arange(3200,10360,10)
 channel = 'red'
@@ -198,7 +199,7 @@ counts = np.divide(np.divide(power,np.divide((const.h.value * const.c.value),wav
 
 # seeing
 _sigma = seeing / gaussian_sigma_to_fwhm
-funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.dot(np.square(_sigma),2))))
+funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide((np.square(x)),(np.dot(np.square(_sigma),2))))
 percent_u,percent_err_u = integrate.quad(funx,(-slit_size/2),(slit_size/2))
 percent_l,percent_err_l = integrate.quad(funx,(-seeing/2),(seeing/2))
 percent = percent_u * percent_l # can use error if you add it later...
@@ -263,95 +264,99 @@ extinction = spectres(wavelength,atmo_ext_x,atmo_ext_y) # since not passed from 
 ''' calculations '''
 
 # signal
-if (channel is 'blue') or (channel is 'both'):
+if (channel == 'blue') or (channel == 'both'):
 	blue_total_eff = np.dot(np.dot(blue_dichro,blue_grating),np.dot((blue_ccd * (coating_eff * extinction)),np.square(mirror)))
 	blue_signal = np.dot((counts * percent), blue_total_eff)
-if (channel is 'red') or (channel is 'both'):
+if (channel == 'red') or (channel == 'both'):
 	red_total_eff = np.dot(np.dot(red_dichro,red_grating),np.dot((red_ccd * (extinction * coating_eff)),np.square(mirror)))
 	red_signal = np.dot((counts * percent), red_total_eff)
 
 # noise
-if (channel is 'blue') or (channel is 'both'):
-	blue_total_eff_noise = np.dot((np.dot(np.dot(blue_dichro,blue_grating)),(np.dot(blue_ccd,np.square(mirror)) * coating_eff)))
+if (channel == 'blue') or (channel == 'both'):
+	red_total_eff_noise = np.dot(np.dot(red_dichro,red_grating),(red_ccd * np.square(mirror) * coating_eff))
 	blue_noise = np.dot(counts_noise * blue_total_eff_noise)
-if (channel is 'red') or (channel is 'both'):
-	red_total_eff_noise = np.dot((np.dot(np.dot(red_dichro,red_grating)),(red_ccd,np.square(mirror)) * coating_eff)) #HERERHERAJLSKDFJLKJ
-	red_noise = np.dot(counts_noise * red_total_eff_noise)
+if (channel == 'red') or (channel == 'both'):
+	red_total_eff_noise = np.dot(np.dot(red_dichro,red_grating),(red_ccd * np.square(mirror) * coating_eff)) #HERERHERAJLSKDFJLKJ
+	red_noise = np.dot(counts_noise,red_total_eff_noise)
 
-if (channel is 'blue') or (channel is 'both'):
+if (channel == 'blue') or (channel == 'both'):
 	snr_blue = np.divide(blue_signal,np.sqrt(blue_signal + blue_noise + np.square(readnoise)))
-if (channel is 'red') or (channel is 'both'):
+if (channel == 'red') or (channel == 'both'):
 	snr_red = np.divide(red_signal,np.sqrt(red_signal + red_noise + np.square(readnoise)))
 
-if (channel is 'blue') or (channel is 'both'):
+if (channel == 'blue') or (channel == 'both'):
 	sigma_blue = np.sqrt(blue_signal + blue_noise)
-if (channel is 'red') or (channel is 'both'):
+if (channel == 'red') or (channel == 'both'):
 	sigma_red = np.sqrt(red_signal + red_noise)
 
-if (channel is 'blue') or (channel is 'both'):
-	error_blue = np.random.normal(loc=0, scale=(np.sqrt(blue_signal + blue_noise)),size=len(blue_snr))
-if (channel is 'red') or (channel is 'both'):
-	error_red = np.random.normal(loc=0, scale=(np.sqrt(red_signal + red_noise)),size=len(red_snr))
+if (channel == 'blue') or (channel == 'both'):
+	error_blue = np.random.normal(loc=0, scale=(np.sqrt(blue_signal + blue_noise)),size=len(snr_blue))
+if (channel == 'red') or (channel == 'both'):
+	error_red = np.random.normal(loc=0, scale=(np.sqrt(red_signal + red_noise)),size=len(snr_red))
 
 
 ''' pre-plotting '''
-
 thing_keys = ['snr','obv_spec','sky_background','dichroic_throughput','grating_throughput','ccd_qe','atmospheric_extinction']
-plot_x = wavelength
+plot_y_blue,plot_y_red = [],[]
 if thing in thing_keys:
-	if (thing.lower() is thing_keys[0]):
+	if (thing.lower() == thing_keys[0]):
 		title = 'Signal-to-Noise Ratio'
 		labels = ['Angstrom','Signal-to-Noise Ratio']
-		if (channel is 'blue') or (channel is 'both'):
-			plot_y_blue = blue_snr
-		if (channel is 'red') or (channel is 'both'):
-			plot_y_red = red_snr
-	elif (thing.lower() is thing_keys[1]):
+		if (channel == 'blue') or (channel == 'both'):
+			plot_y_blue = snr_blue
+		if (channel == 'red') or (channel == 'both'):
+			plot_y_red = snr_red
+	elif (thing.lower() == thing_keys[1]):
 		labels = ['Angstrom','Counts (#) per pixel']
 		if noise:
 			title = 'Observed Spectrum (with noise)'
-			if (channel is 'blue') or (channel is 'both'):
+			if (channel == 'blue') or (channel == 'both'):
 				plot_y_blue = np.add(blue_signal,error_blue)
-			if (channel is 'red') or (channel is 'both'):
+			if (channel == 'red') or (channel == 'both'):
 				plot_y_red = np.add(red_signal,error_red)
 		else:
 			title = 'Observed Spectrum (without noise)'
-			if (channel is 'blue') or (channel is 'both'):
+			if (channel == 'blue') or (channel == 'both'):
 				plot_y_blue = blue_signal
-			if (channel is 'red') or (channel is 'both'):
+			if (channel == 'red') or (channel == 'both'):
 				plot_y_red = red_signal
-	elif (thing.lower() is thing_keys[2]):
+	elif (thing.lower() == thing_keys[2]):
 		title = 'Observed Sky Background'
 		labels = ['Angstrom','Counts (#) per pixel']
-		if (channel is 'blue') or (channel is 'both'):
+		if (channel == 'blue') or (channel == 'both'):
 			plot_y_blue = blue_noise
-		if (channel is 'red') or (channel is 'both'):
+		if (channel == 'red') or (channel == 'both'):
 			plot_y_red = red_noise
-	elif (thing.lower() is thing_keys[3]):
+	elif (thing.lower() == thing_keys[3]):
 		title = 'Dichroic Throughput'
 		labels = ['Angstrom','Throughput']
-		if (channel is 'blue') or (channel is 'both'):
+		if (channel == 'blue') or (channel == 'both'):
 			plot_y_blue = blue_dichro
-		if (channel is 'red') or (channel is 'both'):
+		if (channel == 'red') or (channel == 'both'):
 			plot_y_red = red_dichro
-	elif (thing.lower() is thing_keys[4]):
+	elif (thing.lower() == thing_keys[4]):
 		title = 'Grating Throughput'
 		labels = ['Angstrom','Throughput']
-		if (channel is 'blue') or (channel is 'both'):
+		if (channel == 'blue') or (channel == 'both'):
 			plot_y_blue = blue_grating
-		if (channel is 'red') or (channel is 'both'):
+		if (channel == 'red') or (channel == 'both'):
 			plot_y_red = red_grating
-	elif (thing.lower() is thing_keys[5]):
+	elif (thing.lower() == thing_keys[5]):
 		title = 'CCD Quantum Efficiency'
 		labels = ['Angstrom','QE']
-		if (channel is 'blue') or (channel is 'both'):
+		if (channel == 'blue') or (channel == 'both'):
 			plot_y_blue = blue_ccd
-		if (channel is 'red') or (channel is 'both'):
+		if (channel == 'red') or (channel == 'both'):
 			plot_y_red = red_ccd
-	elif (thing.lower() is thing_keys[6]):
+	elif (thing.lower() == thing_keys[6]):
 		title = 'Atmospheric Extinction'
 		labels = ['Angstrom','Throughput']
 		plot_y_blue = spectres(wavelength,atmo_ext_x,atmo_ext_y)
 		plot_y_red = plot_y_blue
-	else:
-		raise ValueError('{} Invalid thing ({})'.format(string_prefix,thing))
+else:
+	raise ValueError('{} Invalid thing ({})'.format(string_prefix,thing))
+
+plt.plot(wavelength,plot_y_red)
+plt.xlabel = labels[0]
+plt.ylabel = labels[1]
+plt.title = title
