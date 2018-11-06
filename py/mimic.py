@@ -179,7 +179,6 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 
 	del_mag = mag - mag_model
 	output_lambda = object_x
-	print(object_y)
 	output_flux = np.dot(object_y,10 ** np.negative(del_mag/2.5))
 	return output_lambda, output_flux
 
