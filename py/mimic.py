@@ -179,7 +179,8 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 
 	del_mag = mag - mag_model
 	output_lambda = object_x
-	output_flux = np.dot(object_y,np.negative(del_mag/2.5))
+	print(object_y)
+	output_flux = np.dot(object_y,10 ** np.negative(del_mag/2.5))
 	return output_lambda, output_flux
 
 
@@ -199,7 +200,7 @@ counts = np.divide(np.divide(power,np.divide((const.h.value * const.c.value),wav
 
 # seeing
 _sigma = seeing / gaussian_sigma_to_fwhm
-funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide((np.square(x)),(np.dot(np.square(_sigma),2))))
+funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.dot(np.square(_sigma),2))))
 percent_u,percent_err_u = integrate.quad(funx,(-slit_size/2),(slit_size/2))
 percent_l,percent_err_l = integrate.quad(funx,(-seeing/2),(seeing/2))
 percent = percent_u * percent_l # can use error if you add it later...
@@ -360,3 +361,4 @@ plt.plot(wavelength,plot_y_red)
 plt.xlabel = labels[0]
 plt.ylabel = labels[1]
 plt.title = title
+plt.show()
