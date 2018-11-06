@@ -152,7 +152,7 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 	extinction = spectres(lambda_A,atmo_ext_x,atmo_ext_y)
 
 	flux = flux_A * 1e10
-	_lambda = lambda_A * 1e10
+	_lambda = lambda_A / 1e10
 
 	num_zeros = 0
 	for lux in flux:
@@ -169,7 +169,7 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 			print('{}% of this bandpass has zero flux'.format(percent_zeros))
 
 	if (mag_sys_opt == 'vega'):
-		flux_vega = spectres(wavelength,vega[0],vega[1])
+		flux_vega = spectres(wavelength,vega[0],vega[1]) # probably not right
 		mag_model = -2.5 * np.log10(np.divide(math.fsum(flux.dot(extinction).dot(_lambda) * trans[1]),math.fsum(flux_vega.dot(trans).dot(_lambda) * extinction[1]))) + 0.03
 	elif (mag_sys_opt == 'ab'):
 		#mag_model = -48.60 - 2.5 * np.log10(np.divide(math.fsum(np.dot(flux,trans).dot(extinction).dot(_lambda)),math.fsum(trans.dot(_lambda) * extinction[1]).dot(const.c.value/(np.square(_lambda)))))
@@ -187,9 +187,9 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 star_x, star_y = mag_cal(wavelength=wavelength,selected_filter=selected_filter,mag_sys_opt=mag_sys_opt,object_type=object_type,redshift=redshift,mag=magnitude)
 old_res = star_x[2] - star_x[1]
 if (old_res < plot_step):
-	flux_y = spectres(wavelength,star_x,star_y)
+	flux_y = spectres(wavelength,star_x,(star_y*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
 else:
-	flux_y = spectres(wavelength,star_x,star_y)
+	flux_y = spectres(wavelength,star_x,(star_y*1e-03))
 
 flux = np.dot(flux_y,1e-03)
 power = np.dot(np.dot(flux,area),np.dot(exp_time,plot_step))
