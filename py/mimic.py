@@ -33,7 +33,7 @@ mirror_file_x,mirror_file_y = dh.mirror_file[0]*10,dh.mirror_file[1]
 ''' constants '''
 
 object_type = 'a5v'
-filter_index = -3
+filter_index = 3
 mag_sys_opt = 'ab'
 magnitude = 25
 redshift = 0
@@ -43,13 +43,14 @@ moon_days = 0
 grating_opt = 0
 telescope_mode = 'first'
 exp_time = 3600
-thing = 'snr'
-
-wavelength = np.arange(3200,10360,10)
-channel = 'red'
+thing = 'snr' # options are 'snr','obv_spec','sky_background','dichroic_throughput','grating_throughput','ccd_qe','atmospheric_extinction'
+noise = False
+wavelength = np.arange(3200,10360,edl.dld[0]/3.)
+channel = 'both'
 
 string_prefix = '[ etc ] :'
-coating_eff = 0.8*0.98**14
+coating_eff_red = 0.62
+coating_eff_blue = 0.60
 
 stellar_keys = [filename[:-4] for filename in edl.stellar_files]
 galactic_keys = edl.galaxy_files
@@ -79,9 +80,9 @@ else:
 
 
 if grating_opt in grating_opt_keys[:2]: # low resolution
-	delta_lambda_default = edl.dld[1]
-elif grating_opt in grating_opt_keys[3:]:
 	delta_lambda_default = edl.dld[0]
+elif grating_opt in grating_opt_keys[3:]:
+	delta_lambda_default = edl.dld[1]
 else:
 	raise ValueError("{} Invalid grating option ({})".format(string_prefix,grating_opt))
 
@@ -107,7 +108,7 @@ elif wavelength is 'default':
 else:
 	raise ValueError('{} Invalid wavelength range ({}-{})'.format(string_prefix,wavelength[0],wavelength[-1]))
 
-
+print('[ info ] : delta lambda: {} Angstrom, binned pixel scale {} Angstrom/px'.format(delta_lambda,plot_step))
 ''' mag_cal '''
 
 def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
@@ -147,7 +148,8 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 	lambda_A[0] = lambda_A[0] + plot_step
 	lambda_A[-1] = lambda_A[-1] - plot_step
 
-	trans = spectres(lambda_A,selected_filter[0],selected_filter[1])
+	ftrans = interpolate.interp1d(selected_filter[0],selected_filter[1], kind='cubic')
+	trans = ftrans(lambda_A) #spectres(lambda_A,selected_filter[0],selected_filter[1])
 
 	extinction = spectres(lambda_A,atmo_ext_x,atmo_ext_y)
 
@@ -169,17 +171,18 @@ def mag_cal(wavelength,selected_filter,mag_sys_opt,object_type,redshift,mag):
 			print('{}% of this bandpass has zero flux'.format(percent_zeros))
 
 	if (mag_sys_opt == 'vega'):
-		flux_vega = spectres(wavelength,vega[0],vega[1]) # probably not right
-		mag_model = -2.5 * np.log10(np.divide(math.fsum(flux.dot(extinction).dot(_lambda) * trans[1]),math.fsum(flux_vega.dot(trans).dot(_lambda) * extinction[1]))) + 0.03
+		flux_vega = spectres(wavelength,vega[0],vega[1]) * 1e10 # probably not right Need to read in vega file, not defined right now
+		print(vega[0])
+		mag_model = -2.5 * np.log10(np.divide(math.fsum(flux * extinction * _lambda * trans),math.fsum(flux_vega * trans * _lambda * extinction))) + 0.03
 	elif (mag_sys_opt == 'ab'):
-		#mag_model = -48.60 - 2.5 * np.log10(np.divide(math.fsum(np.dot(flux,trans).dot(extinction).dot(_lambda)),math.fsum(trans.dot(_lambda) * extinction[1]).dot(const.c.value/(np.square(_lambda)))))
-		mag_model = -48.6 - 2.5 * np.log10((np.dot(np.dot(flux,trans),np.dot(extinction,_lambda))) / (math.fsum(np.dot((np.dot(trans,_lambda) * extinction[1]),(const.c.value/np.square(_lambda))))))
+		#mag_model = -48.60 - 2.5 * np.log10(np.divide(math.fsum(np.multiply(flux,trans).multiply(extinction).multiply(_lambda)),math.fsum(trans.multiply(_lambda) * extinction[1]).multiply(const.c.value/(np.square(_lambda)))))
+		mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * extinction *_lambda) / math.fsum(trans * _lambda * extinction * (const.c.value/np.square(_lambda))))
 	else:
 		print('Invalid mag_sys_opt!')
 
 	del_mag = mag - mag_model
 	output_lambda = object_x
-	output_flux = np.dot(object_y,10 ** np.negative(del_mag/2.5))
+	output_flux = np.multiply(object_y,10 ** np.negative(del_mag/2.5))
 	return output_lambda, output_flux
 
 
@@ -190,8 +193,8 @@ if (old_res < plot_step):
 else:
 	flux_y = spectres(wavelength,star_x,(star_y*1e-03))
 
-flux = np.dot(flux_y,1e-03)
-power = np.dot(np.dot(flux,area),np.dot(exp_time,plot_step))
+flux = flux_y
+power = flux * area * exp_time * plot_step
 counts = np.divide(np.divide(power,np.divide((const.h.value * const.c.value),wavelength)),1e10)
 
 
@@ -199,7 +202,7 @@ counts = np.divide(np.divide(power,np.divide((const.h.value * const.c.value),wav
 
 # seeing
 _sigma = seeing / gaussian_sigma_to_fwhm
-funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.dot(np.square(_sigma),2))))
+funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.multiply(np.square(_sigma),2))))
 percent_u,percent_err_u = integrate.quad(funx,(-slit_size/2),(slit_size/2))
 percent_l,percent_err_l = integrate.quad(funx,(-seeing/2),(seeing/2))
 percent = percent_u * percent_l # can use error if you add it later...
@@ -214,32 +217,36 @@ _x = np.arange((-5*_sigma),(5*_sigma),old_res)
 degrade = funx(_x)/np.trapz(funx(_x))
 sky_y = convolve_fft(sky_y,degrade)
 sky_flux = spectres(wavelength,sky_x,sky_y)
-counts_noise = np.dot(np.dot(sky_flux,extension),(area*exp_time*plot_step))
+counts_noise = np.multiply(np.multiply(sky_flux,extension),(area*exp_time*plot_step))
 
 # dichroic
 if (channel is 'blue') or (channel is 'both'):
-	blue_dichro = spectres(wavelength,dichroic_x,dichroic_y1)
+	fblue_dichro = interpolate.interp1d(dichroic_x,dichroic_y1, kind='cubic')
+	blue_dichro = fblue_dichro(wavelength) #spectres(wavelength,dichroic_x,dichroic_y1)
 if (channel is 'red') or (channel is 'both'):
 	print('wavelength: shape is {}, first is {}, last is {}, step is {}'.format(wavelength.shape[0],wavelength[0],wavelength[-1],(wavelength[2] - wavelength[1])))
 	print('dichroic_x: shape is {}, first is {}, last is {}, step is {}'.format(dichroic_x.shape[0],dichroic_x[0],dichroic_x[-1],(dichroic_x[2] - dichroic_x[1])))
-	red_dichro = spectres(wavelength,dichroic_x,dichroic_y2)
+	fred_dichro = interpolate.interp1d(dichroic_x,dichroic_y2, kind='cubic')
+	red_dichro = fred_dichro(wavelength) #spectres(wavelength,dichroic_x,dichroic_y2)
 
 # grating
 if (channel is 'blue') or (channel is 'both'):
-	
 	blue_grating = spectres(wavelength,(grating1[0]*10),grating1[1])
 if (channel is 'red') or (channel is 'both'):
 	red_grating = spectres(wavelength,(grating2[0]*10),grating2[1])
 
 # ccd
 if (channel is 'blue') or (channel is 'both'):
-	blue_ccd = spectres(wavelength,(ccd1[0]*10),ccd1[1])
+	fblue_ccd = interpolate.interp1d((ccd1[0]*10),ccd1[1], kind='cubic')
+	blue_ccd = fblue_ccd(wavelength) #spectres(wavelength,(ccd1[0]*10),ccd1[1])
 if (channel is 'red') or (channel is 'both'):
-	red_ccd = spectres(wavelength,(ccd2[0]*10),ccd2[1])
+	fred_ccd = interpolate.interp1d((ccd2[0]*10),ccd2[1], kind='cubic')
+	red_ccd = fred_ccd(wavelength) #spectres(wavelength,(ccd2[0]*10),ccd2[1])
 
 # mirror bouncing, apply twice
 print('mirror: shape is {}, first is {}, last is {}, step is {}'.format(mirror_file_x.shape[0],mirror_file_x[0],mirror_file_x[-1],(mirror_file_x[2] - mirror_file_x[1])))
-mirror = spectres(wavelength,mirror_file_x,mirror_file_y)
+fmirror = interpolate.interp1d(mirror_file_x,mirror_file_y, kind='cubic')
+mirror = fmirror(wavelength) #spectres(wavelength,mirror_file_x,mirror_file_y)
 
 # read noise
 spectral_resolution = math.ceil((slit_size/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer
@@ -255,7 +262,7 @@ rn = edl.rn_default
 if (bin_size > 0) and (bin_size < 5):
 	print('[ info ] : Pixel binning: ({}x{})'.format(bin_size,bin_size))
 	readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (bin_size**2))
-	print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
+	print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels/resel: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
 else:
 	raise ValueError('{} Invalid pixel binning option ({})'.format(string_prefix,bin_size))
 
@@ -265,19 +272,19 @@ extinction = spectres(wavelength,atmo_ext_x,atmo_ext_y) # since not passed from 
 
 # signal
 if (channel == 'blue') or (channel == 'both'):
-	blue_total_eff = np.dot(np.dot(blue_dichro,blue_grating),np.dot((blue_ccd * (coating_eff * extinction)),np.square(mirror)))
-	blue_signal = np.dot((counts * percent), blue_total_eff)
+	blue_total_eff = np.multiply(np.multiply(blue_dichro,blue_grating),np.multiply((blue_ccd * (coating_eff_blue * extinction)),np.square(mirror)))
+	blue_signal = np.multiply((counts * percent), blue_total_eff)
 if (channel == 'red') or (channel == 'both'):
-	red_total_eff = np.dot(np.dot(red_dichro,red_grating),np.dot((red_ccd * (extinction * coating_eff)),np.square(mirror)))
-	red_signal = np.dot((counts * percent), red_total_eff)
+	red_total_eff = np.multiply(np.multiply(red_dichro,red_grating),np.multiply((red_ccd * (extinction * coating_eff_red)),np.square(mirror)))
+	red_signal = np.multiply((counts * percent), red_total_eff)
 
 # noise
 if (channel == 'blue') or (channel == 'both'):
-	red_total_eff_noise = np.dot(np.dot(red_dichro,red_grating),(red_ccd * np.square(mirror) * coating_eff))
-	blue_noise = np.dot(counts_noise * blue_total_eff_noise)
+	blue_total_eff_noise = np.multiply(np.multiply(blue_dichro,blue_grating),(blue_ccd * np.square(mirror) * coating_eff_blue))
+	blue_noise = np.multiply(counts_noise,blue_total_eff_noise)
 if (channel == 'red') or (channel == 'both'):
-	red_total_eff_noise = np.dot(np.dot(red_dichro,red_grating),(red_ccd * np.square(mirror) * coating_eff)) #HERERHERAJLSKDFJLKJ
-	red_noise = np.dot(counts_noise,red_total_eff_noise)
+	red_total_eff_noise = np.multiply(np.multiply(red_dichro,red_grating),(red_ccd * np.square(mirror) * coating_eff_red)) #HERERHERAJLSKDFJLKJ
+	red_noise = np.multiply(counts_noise,red_total_eff_noise)
 
 if (channel == 'blue') or (channel == 'both'):
 	snr_blue = np.divide(blue_signal,np.sqrt(blue_signal + blue_noise + np.square(readnoise)))
@@ -285,14 +292,14 @@ if (channel == 'red') or (channel == 'both'):
 	snr_red = np.divide(red_signal,np.sqrt(red_signal + red_noise + np.square(readnoise)))
 
 if (channel == 'blue') or (channel == 'both'):
-	sigma_blue = np.sqrt(blue_signal + blue_noise)
+	sigma_blue = np.sqrt(blue_signal + blue_noise + np.square(readnoise))
 if (channel == 'red') or (channel == 'both'):
-	sigma_red = np.sqrt(red_signal + red_noise)
+	sigma_red = np.sqrt(red_signal + red_noise + np.square(readnoise))
 
 if (channel == 'blue') or (channel == 'both'):
-	error_blue = np.random.normal(loc=0, scale=(np.sqrt(blue_signal + blue_noise)),size=len(snr_blue))
+	error_blue = np.random.normal(loc=0, scale=sigma_blue,size=len(snr_blue))
 if (channel == 'red') or (channel == 'both'):
-	error_red = np.random.normal(loc=0, scale=(np.sqrt(red_signal + red_noise)),size=len(snr_red))
+	error_red = np.random.normal(loc=0, scale=sigma_red,size=len(snr_red))
 
 
 ''' pre-plotting '''
@@ -301,7 +308,7 @@ plot_y_blue,plot_y_red = [],[]
 if thing in thing_keys:
 	if (thing.lower() == thing_keys[0]):
 		title = 'Signal-to-Noise Ratio'
-		labels = ['Angstrom','Signal/Noise']
+		labels = ['Angstrom','Signal-to-Noise Ratio']
 		if (channel == 'blue') or (channel == 'both'):
 			plot_y_blue = snr_blue
 		if (channel == 'red') or (channel == 'both'):
@@ -356,7 +363,8 @@ if thing in thing_keys:
 else:
 	raise ValueError('{} Invalid thing ({})'.format(string_prefix,thing))
 
-plt.plot(wavelength,plot_y_red)
+plt.plot(wavelength,plot_y_red, 'r-')
+plt.plot(wavelength,plot_y_blue, 'b-')
 plt.xlabel(labels[0])
 plt.ylabel(labels[1])
 plt.title(title)
