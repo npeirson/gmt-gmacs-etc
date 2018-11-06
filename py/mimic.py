@@ -301,7 +301,7 @@ plot_y_blue,plot_y_red = [],[]
 if thing in thing_keys:
 	if (thing.lower() == thing_keys[0]):
 		title = 'Signal-to-Noise Ratio'
-		labels = ['Angstrom','Signal-to-Noise Ratio']
+		labels = ['Angstrom','Signal/Noise']
 		if (channel == 'blue') or (channel == 'both'):
 			plot_y_blue = snr_blue
 		if (channel == 'red') or (channel == 'both'):
@@ -357,7 +357,7 @@ else:
 	raise ValueError('{} Invalid thing ({})'.format(string_prefix,thing))
 
 plt.plot(wavelength,plot_y_red)
-plt.xlabel = labels[0]
-plt.ylabel = labels[1]
-plt.title = title
+plt.xlabel(labels[0])
+plt.ylabel(labels[1])
+plt.title(title)
 plt.show()
