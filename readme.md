@@ -1,18 +1,8 @@
-# GMACS-ETC 2.2
-## Exposure Time Calculator for the Giant Magellan Telescope Multi-object Astronomical and Cosmological Spectrograph
+# GMACS ETC
 
-Desiged for the Munnerlyn Astronomical Instrumentation Lab at Texas A&M University
-Coded by the Kwisatz Haderach in 2018, based on previous versions by Ting Li
+Since mimic seems to work, I'm going to go work on moving its code into the python class, and make the state machine to direct resampling.
 
-Documentation in `docs/`
 
-TODOs:
-- output all the re-parsed data so it doesn't have to be calculated every time
-- add input disabling for plot calls that don't require them
-- math problem somewhere in signal/noise ratio?
-- add the loading screen (last)
-
-Ok soldier listen up! Here's the query map!
 ```
 		Tabs:
 		 |-	SNR
