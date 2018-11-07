@@ -53,8 +53,11 @@ class simulate:
 		self.redshift = num_router(redshift)
 		self.moon_days = num_router(moon_days)
 		if isinstance(wavelength,np.ndarray):
-			self.wavelength = wavelength
-			self.plot_step = self.wavelength[2] - self.wavelength[1]
+			self.wavelength = wavelength			
+			if (self.wavelength >= dfs.default_limits_wavelength[0]) and (self.wavelength <= dfs.default_limits_wavelength[1]):
+				self.plot_step = self.wavelength[2] - self.wavelength[1]
+			else:
+				raise ValueError('{} Invalid wavelength extrema: {}'.format(string_prefix,self.wavelength))
 		else:
 			raise TypeError("{} Invalid wavelength type: {} (must be array-like)".format(string_prefix,type(wavelength)))
 		self.__dict__ = dict(kwargs) # pick up any optionals
@@ -189,12 +192,13 @@ class simulate:
 	''' tier 2 '''
 
 	def recalculate_counts(self,caller):
-		if caller in power_keys:
+		if caller in counts_keys:
 			self.recalculate_flux(caller)
 			self.change_telescope_mode(caller)
 		else:
 			self.recalculate_flux(caller)
 			self.change_telescope_mode(caller)
+			self.change_plot_step(caller)
 
 		self.power = self.flux_y * self.area * self.exposure_time * self.plot_step
 		self.counts = np.divide(np.divide(self.power,np.divide((const.h.value * const.c.value),self.wavelength)),1e10)
@@ -211,6 +215,7 @@ class simulate:
 			self.recalculate_sky_flux(caller)
 			self.recalculate_extension(caller)
 			self.change_telescope_mode(caller)
+			self.change_plot_step(caller)
 
 		self.counts_noise = np.multiply(np.multiply(self.sky_flux,self.extension),(self.area*self.exposure_time*self.plot_step))
 
@@ -279,6 +284,7 @@ class simulate:
 			self.change_filter()
 			self.change_mag_sys_opt()
 			self.change_moon_days()
+			self.change_plot_step(caller)
 
 		# heal identicalities
 		self.lambda_A[0] = lambda_A[0] + self.plot_step
@@ -402,6 +408,7 @@ class simulate:
 		else:
 			lambda_max = self.wavelength[-1]
 
+		self.change_plot_step(caller)
 		self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
 		if not sss:
 			_active = edl.filter_files[self.filter_index]
@@ -472,11 +479,19 @@ class simulate:
 				print('{} Pixel binning: ({}x{})'.format(string_prefix,self.bin_size,self.bin_size))
 				print('{} Extent: {} arcsec^2\n{} num pixels/resel: {} px\n{} spectral resolution: {} px\n{} spatial resolution: {} px'.format(string_prefix,extent,string_prefix,int(math.ceil(npix)),string_prefix,spectral_resolution,string_prefix,spatial_resolution))
 		else:
-			raise ValueError('{} Invalid pixel binning option ({})'.format(string_prefix,self.bin_size))
+			raise ValueError('{} Invalid pixel binning option: {}'.format(string_prefix,self.bin_size))
 
 
 	def recalculate_atmospheric_extinction(self,caller):
 		self.extinction = spectres(self.wavelength,dh.atmo_ext_x,dh.atmo_ext_y)
+
+
+	def change_plot_step(self,caller):
+		if (self.wavelength >= dfs.default_limits_wavelength[0]) and (self.wavelength <= dfs.default_limits_wavelength[1]):
+			self.plot_step = self.wavelength[2] - self.wavelength[1]
+		else: # technically shouldn't happen...
+			raise ValueError('{} Invalid wavelength extrema: {}'.format(string_prefix,self.wavelength))
+
 
 
 if __name__ == '__main__':
