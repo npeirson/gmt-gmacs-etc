@@ -145,15 +145,29 @@ class simulate:
 	''' tier 2 '''
 
 	def recalculate_counts(self,caller):
-		self.recalculate_flux(caller)
+		if caller in power_keys:
+			self.recalculate_flux(caller)
+			self.change_telescope_mode(caller)
+		else:
+			self.recalculate_flux(caller)
+			self.change_telescope_mode(caller)
 
 		self.power = self.flux_y * self.area * self.exposure_time * self.plot_step
 		self.counts = np.divide(np.divide(self.power,np.divide((const.h.value * const.c.value),self.wavelength)),1e10)
 
 
 	def recalculate_counts_noise(self,caller):
-		self.recalculate_sky_flux(caller)
-		self.recalculate_extension(caller)
+		if (caller == 'moon_days'):
+			self.recalculate_sky_flux(caller)
+		if (caller == 'telescope_mode'):
+			self.change_telescope_mode(caller)
+		if caller in edl.extension_keys:
+			self.recalculate_extension(caller)
+		else:
+			self.recalculate_sky_flux(caller)
+			self.recalculate_extension(caller)
+			self.change_telescope_mode(caller)
+
 		self.counts_noise = np.multiply(np.multiply(self.sky_flux,self.extension),(self.area*self.exposure_time*self.plot_step))
 
 
@@ -184,7 +198,16 @@ class simulate:
 
 
 	def recalculalte_efficiency_noise(self,caller):
-		self.recalculalte_efficiency_noise(caller)
+		if caller in edl.dichroic_keys:
+			self.recalculate_dichroic(caller)
+		if caller in edl.grating_keys:
+			self.recalculate_grating(caller)
+		if caller in edl.ccd_keys:
+			self.recalculate_ccd(caller)
+		else:
+			self.recalculate_dichroic(caller)
+			self.recalculate_grating(caller)
+			self.recalculate_ccd(caller)
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.total_eff_noise_red = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),(self.ccd_blue * np.square(self.mirror) * edl.coating_eff_blue))
@@ -199,10 +222,13 @@ class simulate:
 			self.change_filter()
 		if caller in edl.mag_sys_keys():
 			change_mag_sys_opt()
+		if caller in edl.atmo_ext_keys:
+			self.change_moon_days()
 		else:
 			self.change_grating_opt()
 			self.change_filter()
-			change_mag_sys_opt()
+			self.change_mag_sys_opt()
+			self.change_moon_days()
 
 		# heal identicalities
 		self.lambda_A[0] = lambda_A[0] + self.plot_step
@@ -280,7 +306,7 @@ class simulate:
 			self.sky_background = skyfiles[(int(np.where(np.asarray(moon_days_keys)==moon_days)[0]))]
 		else:
 			raise ValueError('{} Invalid number of days since new moon: {}'.format(string_prefix,self.moon_days))
-		self.recalculate_counts_noise(caller=caller)
+		self.recalculate_sky_flux(caller)
 
 
 	def change_telescope_mode(self,caller):
