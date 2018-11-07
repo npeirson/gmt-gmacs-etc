@@ -31,7 +31,7 @@ class simulate:
 
 	def __init__(self,telescope_mode='first',wavelength=np.arange(3200,10360,edl.dld[0]/3.),exposure_time=3600,object_type='a5v',
 		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,noise=False,
-		bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both'):
+		bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True):
 		
 		object_type = type_router(object_type)
 		grating_opt = type_router(grating_opt)
@@ -217,13 +217,13 @@ class simulate:
 
 	def recalculate_flux(self,caller):
 		if caller in edl.grating_opt_keys:
-			self.change_grating_opt()
+			self.change_grating_opt(caller)
 		if caller in edl.filter_keys:
-			self.change_filter()
+			self.change_filter(caller)
 		if caller in edl.mag_sys_keys():
-			change_mag_sys_opt()
+			self.change_mag_sys_opt(caller)
 		if caller in edl.atmo_ext_keys:
-			self.change_moon_days()
+			self.change_moon_days(caller)
 		else:
 			self.change_grating_opt()
 			self.change_filter()
@@ -268,13 +268,20 @@ class simulate:
 
 	''' tier 3 '''
 
+
 	def change_grating_opt(self,caller):
-		if self.grating_opt in edl.grating_opt_keys[:2]: # low resolution
+		_active = ''
+		if self.grating_opt in edl.grating_opt_keys[:2]: # low resolution... or is this backards?
 			self.delta_lambda = edl.dld[0] * self.slit_size / 0.7
+			_active = 'low-resolution'
 		elif self.grating_opt in edl.grating_opt_keys[3:]:
 			self.delta_lambda = edl.dld[1] * self.slit_size / 0.7
+			_active = 'high-resolution'
 		else:
 			raise ValueError("{} Invalid grating_opt: {}".format(string_prefix,self.grating_opt))
+		if not sss:
+			print("{} Grating changed to {}".format(string_prefix,_active))
+
 
 	def change_mag_sys_opt(self,caller):
 		if (self.mag_sys_opt == 'vega'):
@@ -284,6 +291,8 @@ class simulate:
 			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * _extinction *_lambda) / math.fsum(trans * _lambda * _extinction * (const.c.value/np.square(_lambda))))
 		else:
 			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(string_prefix,self.mag_sys_opt))
+		if not sss:
+			print("{} Magnitude system changed to {}".format(string_prefix,self.mag_sys_opt.upper()))
 
 
 	def change_object_type(self,caller):
@@ -299,14 +308,18 @@ class simulate:
 		self.object_x = object_type[0] * (1+redshift)
 		self.object_y = object_type[1]
 		self.flux_A = spectres(lambda_A,object_x,object_y)
+		if not sss:
+			print("{} Object type changed to {}".format(string_prefix,self.object_type))
 
 
 	def change_moon_days(self,caller):
-		if moon_days in moon_days_keys:
-			self.sky_background = skyfiles[(int(np.where(np.asarray(moon_days_keys)==moon_days)[0]))]
+		if self.moon_days in moon_days_keys:
+			self.sky_background = dh.skyfiles[(int(np.where(np.asarray(edl.moon_days_keys)==self.moon_days)[0]))]
 		else:
 			raise ValueError('{} Invalid number of days since new moon: {}'.format(string_prefix,self.moon_days))
 		self.recalculate_sky_flux(caller)
+		if not sss:
+			print("{} Days since new moon changed to {}".format(string_prefix,self.moon_days))
 
 
 	def change_telescope_mode(self,caller):
@@ -316,6 +329,8 @@ class simulate:
 			self.area = edl.area[1]
 		else:
 			raise ValueError('{} Invalid telescope mode: {}'.format(string_prefix,self.telescope_mode))
+		if not sss:
+			print("{} Telescope mode changed to {} (area: {} m^2)".format(string_prefix,self.telescope_mode,self.area))
 
 
 	def change_filter(self,caller):
@@ -338,6 +353,9 @@ class simulate:
 			lambda_max = self.wavelength[-1]
 
 		self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
+		if not sss:
+			_active = edl.filter_files[self.filter_index]
+			print("{} Filter changed to {} ({}--{} nm)".format(string_prefix,_active,_active[0],_active[-1]))
 
 
 	def recalculate_seeing(self,caller):
@@ -347,6 +365,8 @@ class simulate:
 		self.percent_l,self.percent_err_l = integrate.quad(funx,(-seeing/2),(seeing/2))
 		self.percent = self.percent_u * self.percent_l # can use error if you add it later...
 		self.extension = self.seeing * self.slit_size
+		if not sss:
+			print("{} Seeing changed to {}".format(string_prefix,self.seeing))
 
 
 	def recalculate_sky_flux(self,caller):
@@ -384,20 +404,27 @@ class simulate:
 			fred_ccd = interpolate.interp1d((dh.ccd2[0]*10),dh.ccd2[1], kind='cubic')
 			self.ccd_red = fred_ccd(self.wavelength)
 
-	def recalculate_readnoise(self,caller):
-		spectral_resolution = math.ceil((self.slit_size/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer
-		spatial_resolution = math.ceil((self.seeing/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer 
+
+	def recalculate_readnoise(self,caller): # probably not implemented in all necessary places yet...
+		spectral_resolution = math.ceil((self.slit_size/(0.7/12))/2)*2 # px (ceil()/2)*2 to round up to next even integer
+		spatial_resolution = math.ceil((self.seeing/(0.7/12))/2)*2 # probably have to find another method, because pscript is depriciating :(
 		extent = seeing * slit_size
 		npix = extent/(0.7/12)**2
 		
 		rn = edl.rn_default
 
 		if (self.bin_size > 0) and (self.bin_size < 5):
-			print('[ info ] : Pixel binning: ({}x{})'.format(self.bin_size,self.bin_size))
 			self.readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (self.bin_size**2))
-			print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels/resel: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
+			if not sss:
+				print('{} Pixel binning: ({}x{})'.format(string_prefix,self.bin_size,self.bin_size))
+				print('{} Extent: {} arcsec^2\n{} num pixels/resel: {} px\n{} spectral resolution: {} px\n{} spatial resolution: {} px'.format(string_prefix,extent,string_prefix,int(math.ceil(npix)),string_prefix,spectral_resolution,string_prefix,spatial_resolution))
 		else:
 			raise ValueError('{} Invalid pixel binning option ({})'.format(string_prefix,self.bin_size))
 
+
 	def recalculate_atmospheric_extinction(self,caller):
 		self.extinction = spectres(self.wavelength,dh.atmo_ext_x,dh.atmo_ext_y)
+
+
+if __name__ == '__main__':
+	main()
