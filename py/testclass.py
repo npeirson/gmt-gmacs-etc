@@ -11,12 +11,13 @@ from astropy import constants as const
 from astropy.convolution import convolve, convolve_fft
 from astropy.stats import gaussian_sigma_to_fwhm
 
+
 # handles various input forms
-def type_router(_obj):
+def num_router(_obj):
 	try:
-		if isinstance(_obj,str):
-			return int(_obj.lower())
-		elif isinstance(_obj,int):
+		if isinstance(_obj,int):
+			return _obj
+		elif isinstance(_obj,float):
 			return _obj
 		else:
 			raise ValueError("{} Invalid value: {}".format(string_prefix,_obj))
@@ -24,32 +25,62 @@ def type_router(_obj):
 		raise TypeError("{} Invalid type: {}".format(string_prefix,type(_obj)))
 
 
+def type_router(_obj):
+	try:
+		if isinstance(_obj,str):
+			return int(_obj.lower())
+		else:
+			return num_router(_obj)
+	except:
+		raise TypeError("{} Invalid type: {}".format(string_prefix,type(_obj)))
+
+
 class simulate:
 	string_prefix = '[ etc ] :'
-	fmirror = interpolate.interp1d(mirror_file_x,mirror_file_y, kind='cubic')
-	mirror = fmirror(wavelength)
 
 	def __init__(self,telescope_mode='first',wavelength=np.arange(3200,10360,edl.dld[0]/3.),exposure_time=3600,object_type='a5v',
 		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,noise=False,
 		bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True):
 		
-		object_type = type_router(object_type)
-		grating_opt = type_router(grating_opt)
-		telescope_mode = type_router(telescope_mode)		
-		self.plot_step = wavelength[2] - wavelength[1]
-		# run init
+		# required args, maybe add range limit too
+		self.object_type = type_router(object_type)
+		self.grating_opt = type_router(grating_opt)
+		self.filter_index = type_router(filter_index)
+		self.telescope_mode = type_router(telescope_mode)
+		self.magnitude = num_router(magnitude)
+		self.seeing = num_router(seeing)
+		self.slit_size = num_router(slit_size)
+		self.redshift = num_router(redshift)
+		self.moon_days = num_router(moon_days)
+
+
+		if isinstance(wavelength,np.ndarray):
+			self.wavelength = wavelength
+			self.plot_step = self.wavelength[2] - self.wavelength[1]
+		
+		if isinstance(slit_size,float) or isinstance(slit_size,int):
+			self.slit_size = slit_size
+		if isinstance(redshift,float)
+			self.redshift = redshift
+		if isinstnace(moon_days,float) or isinstance()
+
+		self.slit_size = slit_size # * u.arcsec
+		self.moon_days = moon_days
+		self.__dict__ = dict(kwargs) # pick up any optionals
+
+		self.change('wavelength') # initializing plots is as easy as this
 
 
 	''' tier 0 '''
 
-	def refresh(self,caller=cb_obj.name,tabs=tabs):
+	def change(self,caller=cb_obj.name,tabs=tabs):
 		# direct the changed values
 		if (tabs.active in [_opt for _opt in range(3)]):
-			if caller in edl.signal_components:
+			if caller in edl.signal_keys:
 				self.recalculate_signal(caller)
-			if caller in edl.noise_components:
+			if caller in edl.noise_keys:
 				self.recalculate_noise(caller)
-			if caller in edl.error_components:
+			if caller in edl.error_keys:
 				self.recalculate_error(caller)
 			else:
 				self.recalculate_signal(caller)
@@ -93,6 +124,17 @@ class simulate:
 
 
 	def recalculate_snr(self,caller):
+		if caller in edl.readnoise_keys:
+			self.recalculate_readnoise(caller)
+		if caller in edl.signal_keys:
+			self.recalculate_signal(caller)
+		if caller in edl.noise_keys:
+			self.recalculate_noise(caller)
+		else:
+			self.recalculate_readnoise(caller)
+			self.recalculate_signal(caller)
+			self.recalculate_noise(caller)
+
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.snr_blue = np.divide(self.signal_blue,np.sqrt(self.signal_blue + self.noise_blue + np.square(self.readnoise)))
 		if (self.channel == 'red') or (self.channel == 'both'):
@@ -100,6 +142,17 @@ class simulate:
 
 
 	def recalculate_error(self,caller):
+		if caller in edl.signal_keys:
+			self.recalculate_signal(caller)
+		if caller in edl.noise_keys:
+			self.recalculate_noise(caller)
+		if caller in edl.readnoise_keys:
+			self.recalculate_readnoise(caller)
+		else:
+			self.recalculate_signal(caller)
+			self.recalculate_noise(caller)
+			self.recalculate_readnoise(caller)
+
 		if (self.self.channel == 'blue') or (self.channel == 'both'):
 			sigma_blue = np.sqrt(self.signal_blue + self.noise_blue + np.square(self.readnoise))
 			self.error_blue = np.random.normal(loc=0, scale=sigma_blue,size=len(self.snr_blue))
@@ -185,11 +238,14 @@ class simulate:
 			self.recalculate_ccd(caller)
 		if caller in edl.atmo_ext_keys:
 			self.recalculate_atmospheric_extinction(caller)
+		if caller in edl.mirror_keys:
+			self.recalculate_mirror(caller)
 		else:
 			self.recalculate_grating(caller)
 			self.recalculate_dichroic(caller)
 			self.recalculate_ccd(caller)
 			self.recalculate_atmospheric_extinction(caller)
+			self.recalculate_mirror(caller)
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.total_eff_blue = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),np.multiply((self.ccd_blue * (edl.coating_eff_blue * self.extinction)),np.square(mirror)))
@@ -204,10 +260,13 @@ class simulate:
 			self.recalculate_grating(caller)
 		if caller in edl.ccd_keys:
 			self.recalculate_ccd(caller)
+		if caller in edl.mirror_keys:
+			self.recalculate_mirror(caller)
 		else:
 			self.recalculate_dichroic(caller)
 			self.recalculate_grating(caller)
 			self.recalculate_ccd(caller)
+			self.recalculate_mirror(caller)
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.total_eff_noise_red = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),(self.ccd_blue * np.square(self.mirror) * edl.coating_eff_blue))
@@ -297,23 +356,23 @@ class simulate:
 
 	def change_object_type(self,caller):
 		if self.object_type in edl.stellar_keys:
-			index_of = [i for i,name in enumerate(stellar_keys) if object_type in name][0]
+			index_of = [i for i,name in enumerate(stellar_keys) if self.object_type in name][0]
 			self.object_type = edl.starfiles[index_of]
 		elif self.object_type in edl.galactic_keys:
-			index_of = [i for i,name in enumerate(galactic_keys) if object_type in name][0]
+			index_of = [i for i,name in enumerate(galactic_keys) if self.object_type in name][0]
 			self.object_type = edl.galaxyfiles[index_of]
 		else:
 			raise ValueError("{} Invalid object type: {}".format(string_prefix,self.object_type))
 
-		self.object_x = object_type[0] * (1+redshift)
-		self.object_y = object_type[1]
+		self.object_x = self.object_type[0] * (1+redshift)
+		self.object_y = self.object_type[1]
 		self.flux_A = spectres(lambda_A,object_x,object_y)
 		if not sss:
 			print("{} Object type changed to {}".format(string_prefix,self.object_type))
 
 
 	def change_moon_days(self,caller):
-		if self.moon_days in moon_days_keys:
+		if self.moon_days in edl.moon_days_keys:
 			self.sky_background = dh.skyfiles[(int(np.where(np.asarray(edl.moon_days_keys)==self.moon_days)[0]))]
 		else:
 			raise ValueError('{} Invalid number of days since new moon: {}'.format(string_prefix,self.moon_days))
@@ -361,8 +420,8 @@ class simulate:
 	def recalculate_seeing(self,caller):
 		_sigma = self.seeing / gaussian_sigma_to_fwhm
 		funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.multiply(np.square(_sigma),2))))
-		self.percent_u,self.percent_err_u = integrate.quad(funx,(-slit_size/2),(slit_size/2))
-		self.percent_l,self.percent_err_l = integrate.quad(funx,(-seeing/2),(seeing/2))
+		self.percent_u,self.percent_err_u = integrate.quad(funx,(-self.slit_size/2),(self.slit_size/2))
+		self.percent_l,self.percent_err_l = integrate.quad(funx,(-self.seeing/2),(self.seeing/2))
 		self.percent = self.percent_u * self.percent_l # can use error if you add it later...
 		self.extension = self.seeing * self.slit_size
 		if not sss:
@@ -404,6 +463,9 @@ class simulate:
 			fred_ccd = interpolate.interp1d((dh.ccd2[0]*10),dh.ccd2[1], kind='cubic')
 			self.ccd_red = fred_ccd(self.wavelength)
 
+	def recalculate_mirror(self,caller):
+		fmirror = interpolate.interp1d(dh.mirror_file_x,dh.mirror_file_y, kind='cubic')
+		self.mirror = fmirror(self.wavelength)
 
 	def recalculate_readnoise(self,caller): # probably not implemented in all necessary places yet...
 		spectral_resolution = math.ceil((self.slit_size/(0.7/12))/2)*2 # px (ceil()/2)*2 to round up to next even integer

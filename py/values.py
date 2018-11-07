@@ -88,6 +88,7 @@ grating_keys = ['grating_opt','slit_size']
 ccd_keys = []
 atmo_ext_keys = []
 extension_keys = ['seeing','slit_size']
+mirror_keys = []
 
 # `np.unique` makes it safe to list key-dependencies in their entirety, for mental health
 counts_noise_keys = np.unique(np.concatenate(['moon_days','telescope_mode'],extension_keys))
@@ -96,7 +97,8 @@ counts_keys = np.unique(np.concatenate(['telescope_mode'],power_keys))
 signal_keys = np.unique(np.concatenate(total_eff_keys,counts_keys,percent_keys))
 noise_keys = np.unique(np.concatenate(['moon_days'],counts_noise_keys,total_eff_noise_keys))
 error_keys = np.unique(np.concatenate(signal_keys,noise_keys))
+readnoise_keys = np.unique(np.concatenate(['binning'],extension_keys))
 
-snr_keys = np.unique(np.concatenate(signal_keys,noise_keys))
+snr_keys = np.unique(np.concatenate(signal_keys,noise_keys,readnoise_keys))
 obs_spec_noise_keys = np.unique(np.concatenate(signal_keys,error_keys))
 obs_spec_nonoise_keys = np.unique(np.concatenate(signal_keys)))
