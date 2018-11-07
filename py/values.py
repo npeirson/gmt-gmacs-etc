@@ -14,6 +14,10 @@ area = [222,368] #
 dld = [3.73,1.4]
 rn_default = 2
 bin_options_default_index = 3 # 1th index is 2nd cell, ergo default is 2x2 binning
+coating_eff_red = 0.62
+coating_eff_blue = 0.60
+bin_options_int = [1,2,3,4]
+bin_options_str = ['1x1','2x2','3x3','4x4']
 
 ''' paths '''
 # get path to values.py
@@ -39,11 +43,16 @@ skyfiles = ['00d_315-1200nm.csv','03d_315-1200nm.csv','07d_315-1200nm.csv','10d_
 #filter_files = ['BesB.dat','BesI.dat','BesR.dat','BesU.dat','BesV.dat','g.dat','i.dat','photonb.dat','photonI.dat','photonR.dat','photonUX.dat','photonV.dat','r.dat','u.dat','z.dat']
 filter_files = ['photonUX.dat','photonB.dat','photonV.dat','photonR.dat','photonI.dat','u.dat','g.dat','r.dat','i.dat','z.dat']
 
-''' assorted '''
-bin_options_int = [1,2,3,4]
-bin_options_str = ['1x1','2x2','3x3','4x4']
+''' keychain '''
 keys = ['obj','atmo_ext','wavelength',
 		'filter_opt','magnitude','mag_sys_opt',
 		'grating_opt','redshift','exposure_time',
 		'seeing','slit_size','moon_days','plot_channel',
 		'telescope_mode','binx','sss']
+
+stellar_keys = [filename[:-4] for filename in stellar_files]
+galactic_keys = edl.galaxy_files
+filter_keys = [filename[:-4] for filename in filter_files]
+grating_opt_keys = ['low',0,1.4,'high',1,3.73]
+moon_days_keys = [0,3,7,10,14]
+telescope_mode_keys = [0,4,'first','first light',1,7,'full','full size']
