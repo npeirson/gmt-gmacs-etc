@@ -9,7 +9,8 @@ import values as edl
 
 jsonify_data = lambda data,filename: json.dump(data,filename)
 
-''' data handling '''
+
+''' import data '''
 # explicit... not very elegant, but pandas don't like loops
 sb1_x,sb1_y = np.loadtxt(os.path.join(edl.galaxy_path,edl.galaxy_files[0]),usecols=(0,1),unpack=True)
 sb2_x,sb2_y = np.loadtxt(os.path.join(edl.galaxy_path,edl.galaxy_files[1]),usecols=(0,1),unpack=True)
@@ -65,3 +66,25 @@ dichroic_x = _dichroic_x * 10
 atmo_ext_x,atmo_ext_y = np.loadtxt(edl.atmo_ext_path,usecols=(0,1),unpack=True,delimiter=',')
 
 mirror_file = np.fliplr(np.loadtxt(edl.mirror_file,usecols=(0,1),unpack=True,delimiter=' '))
+
+
+''' coalesced data '''
+
+galaxyfiles = [[sb1_x,sb1_y],[sb2_x,sb2_y],[sb3_x,sb3_y],[sb4_x,sb4_y],[sb5_x,sb5_y],
+				[sb6_x,sb6_y],[s0_x,s0_y],[sa_x,sa_y],[sb_x,sb_y],[sc_x,sc_y],
+				[bulge_x,bulge_y],[ellipticals_x,ellipticals_y],[lbg_all_flam_x,lbg_all_flam_y]]
+starfiles = [[star_o5v_x,star_o5v_y],[star_b0v_x,star_b0v_y],[star_b57v_x,star_b57v_y],
+			[star_a0v_x,star_a0v_y],[star_a5v_x,star_a5v_y],[star_f0v_x,star_f0v_y],
+			[star_g0v_x,star_g0v_y],[star_g5v_x,star_g5v_y],[star_k0v_x,star_k5v_y],
+			[star_m0v_x,star_m0v_y],[star_m5v_x,star_m5v_y]]
+filterfiles = [[filter_photonux_x,filter_photonux_y],[filter_photonb_x,filter_photonb_y],
+				[filter_photonv_x,filter_photonv_y],[filter_photonr_x,filter_photonr_y],
+				[filter_photoni_x,filter_photoni_y],[filter_u_x,filter_u_y],[filter_g_x,filter_g_y],
+				[filter_r_x,filter_r_y],[filter_i_x,filter_i_y],[filter_z_x,filter_z_y]]
+skyfiles = [[skyfile_00d_x,skyfile_00d_y],[skyfile_03d_x,skyfile_03d_y],[skyfile_07d_x,skyfile_07d_y],
+			[skyfile_10d_x,skyfile_10d_y],[skyfile_14d_x,skyfile_14d_y]]
+dichroic_x,dichroic_y1,dichroic_y2 = dichroic_x,dichroic_y1,dichroic_y2
+grating1,grating2 = [grating_blue_x,grating_blue_y],[grating_red_x,grating_red_y]
+ccd1,ccd2 = [ccd_blue_x,ccd_blue_y],[ccd_red_x,ccd_red_y]
+atmo_ext_x,atmo_ext_y = atmo_ext_x,atmo_ext_y
+mirror_file_x,mirror_file_y = mirror_file[0]*10,mirror_file[1]

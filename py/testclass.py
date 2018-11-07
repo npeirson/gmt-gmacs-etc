@@ -4,6 +4,7 @@
 import math
 import numpy as np
 import values as edl
+import defaults as dfs
 import datahandler as dh
 from spectres import spectres
 from scipy import interpolate, integrate
@@ -20,33 +21,53 @@ def num_router(_obj):
 		elif isinstance(_obj,float):
 			return _obj
 		else:
-			raise ValueError("{} Invalid value: {}".format(string_prefix,_obj))
+			raise ValueError("{} Invalid value: {}".format(edl.string_prefix,_obj))
 	except:
-		raise TypeError("{} Invalid type: {}".format(string_prefix,type(_obj)))
+		raise TypeError("{} Invalid type: {}".format(edl.string_prefix,type(_obj)))
 
 
-def type_router(_obj):
+
+def type_router(_obj,_keys):
 	try:
 		if isinstance(_obj,str):
-			return int(_obj.lower())
+			return int(np.where(np.asarray(_keys)==_obj.lower())[0])
 		else:
 			return num_router(_obj)
 	except:
-		raise TypeError("{} Invalid type: {}".format(string_prefix,type(_obj)))
+		raise TypeError("{} Invalid type: {}".format(edl.string_prefix,type(_obj)))
+
+
+
+'''
+	GMACS Exposure Time Calculator class
+
+'''
 
 
 class simulate:
-	string_prefix = '[ etc ] :'
 
-	def __init__(self,telescope_mode='first',wavelength=np.arange(3200,10360,edl.dld[0]/3.),exposure_time=3600,object_type='a5v',
-		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,noise=False,
-		bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True):
+	def __init__(self,telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
+		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
+		noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True):
 		
 		# required args, maybe add range limit too
-		self.object_type = type_router(object_type)
-		self.grating_opt = type_router(grating_opt)
-		self.filter_index = type_router(filter_index)
-		self.telescope_mode = type_router(telescope_mode)
+		self.object_type = type_router(object_type,edl.object_type_keys)
+		if (self.object_type >= len(edl.object_type_keys)):
+			self.object_type = self.object_type - len(edl.object_type_keys)
+
+		self.grating_opt = type_router(grating_opt,edl.grating_opt_keys)
+		if (self.grating_opt >= 3):
+			self.grating_opt = 1
+		else:
+			self.grating_opt = 0
+
+		self.telescope_mode = type_router(telescope_mode,edl.telescope_mode_keys)
+		if (telescope_mode >= 3):
+			edl.telescope_mode = 1
+		else:
+			edl.telescope_mode = 0
+
+		self.filter_index = type_router(filter_index,edl.filter_keys)
 		self.magnitude = num_router(magnitude)
 		self.seeing = num_router(seeing)
 		self.slit_size = num_router(slit_size)
@@ -57,9 +78,9 @@ class simulate:
 			if (self.wavelength >= dfs.default_limits_wavelength[0]) and (self.wavelength <= dfs.default_limits_wavelength[1]):
 				self.plot_step = self.wavelength[2] - self.wavelength[1]
 			else:
-				raise ValueError('{} Invalid wavelength extrema: {}'.format(string_prefix,self.wavelength))
+				raise ValueError('{} Invalid wavelength extrema: {}'.format(edl.string_prefix,self.wavelength))
 		else:
-			raise TypeError("{} Invalid wavelength type: {} (must be array-like)".format(string_prefix,type(wavelength)))
+			raise TypeError("{} Invalid wavelength type: {} (must be array-like)".format(edl.string_prefix,type(wavelength)))
 		self.__dict__ = dict(kwargs) # pick up any optionals
 
 		self.change('wavelength') # initializing plots is as easy as this
@@ -67,7 +88,7 @@ class simulate:
 
 	''' tier 0 '''
 
-	def change(self,caller=cb_obj.name,tabs=tabs):
+	def change(self,caller,tabs): # caller=cb_obj.name,tabs=tabs
 		# direct the changed values
 		if (tabs.active in [_opt for _opt in range(3)]):
 			if caller in edl.signal_keys:
@@ -112,7 +133,7 @@ class simulate:
 				plot_y1 = self.extinction
 				plot_y2 = self.extinction
 			else:
-				raise ValueError("{} Invalid active tab: {}".format(string_prefix,tabs.active))
+				raise ValueError("{} Invalid active tab: {}".format(edl.string_prefix,tabs.active))
 
 		return plot_y1,plot_y2
 
@@ -334,9 +355,9 @@ class simulate:
 			self.delta_lambda = edl.dld[1] * self.slit_size / 0.7
 			_active = 'high-resolution'
 		else:
-			raise ValueError("{} Invalid grating_opt: {}".format(string_prefix,self.grating_opt))
+			raise ValueError("{} Invalid grating_opt: {}".format(edl.string_prefix,self.grating_opt))
 		if not sss:
-			print("{} Grating changed to {}".format(string_prefix,_active))
+			print("{} Grating changed to {}".format(edl.string_prefix,_active))
 
 
 	def change_mag_sys_opt(self,caller):
@@ -346,36 +367,36 @@ class simulate:
 		elif (self.mag_sys_opt == 'ab'):
 			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * _extinction *_lambda) / math.fsum(trans * _lambda * _extinction * (const.c.value/np.square(_lambda))))
 		else:
-			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(string_prefix,self.mag_sys_opt))
+			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(edl.string_prefix,self.mag_sys_opt))
 		if not sss:
-			print("{} Magnitude system changed to {}".format(string_prefix,self.mag_sys_opt.upper()))
+			print("{} Magnitude system changed to {}".format(edl.string_prefix,self.mag_sys_opt.upper()))
 
 
 	def change_object_type(self,caller):
 		if self.object_type in edl.stellar_keys:
 			index_of = [i for i,name in enumerate(stellar_keys) if self.object_type in name][0]
-			self.object_type = edl.starfiles[index_of]
+			self.object_type = dh.starfiles[index_of]
 		elif self.object_type in edl.galactic_keys:
 			index_of = [i for i,name in enumerate(galactic_keys) if self.object_type in name][0]
-			self.object_type = edl.galaxyfiles[index_of]
+			self.object_type = dh.galaxyfiles[index_of]
 		else:
-			raise ValueError("{} Invalid object type: {}".format(string_prefix,self.object_type))
+			raise ValueError("{} Invalid object type: {}".format(edl.string_prefix,self.object_type))
 
 		self.object_x = self.object_type[0] * (1+redshift)
 		self.object_y = self.object_type[1]
 		self.flux_A = spectres(lambda_A,object_x,object_y)
 		if not sss:
-			print("{} Object type changed to {}".format(string_prefix,self.object_type))
+			print("{} Object type changed to {}".format(edl.string_prefix,self.object_type))
 
 
 	def change_moon_days(self,caller):
 		if self.moon_days in edl.moon_days_keys:
 			self.sky_background = dh.skyfiles[(int(np.where(np.asarray(edl.moon_days_keys)==self.moon_days)[0]))]
 		else:
-			raise ValueError('{} Invalid number of days since new moon: {}'.format(string_prefix,self.moon_days))
+			raise ValueError('{} Invalid number of days since new moon: {}'.format(edl.string_prefix,self.moon_days))
 		self.recalculate_sky_flux(caller)
 		if not sss:
-			print("{} Days since new moon changed to {}".format(string_prefix,self.moon_days))
+			print("{} Days since new moon changed to {}".format(edl.string_prefix,self.moon_days))
 
 
 	def change_telescope_mode(self,caller):
@@ -384,9 +405,9 @@ class simulate:
 		elif self.telescope_mode in edl.telescope_mode_keys[4:]:
 			self.area = edl.area[1]
 		else:
-			raise ValueError('{} Invalid telescope mode: {}'.format(string_prefix,self.telescope_mode))
+			raise ValueError('{} Invalid telescope mode: {}'.format(edl.string_prefix,self.telescope_mode))
 		if not sss:
-			print("{} Telescope mode changed to {} (area: {} m^2)".format(string_prefix,self.telescope_mode,self.area))
+			print("{} Telescope mode changed to {} (area: {} m^2)".format(edl.string_prefix,self.telescope_mode,self.area))
 
 
 	def change_filter(self,caller):
@@ -412,7 +433,7 @@ class simulate:
 		self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
 		if not sss:
 			_active = edl.filter_files[self.filter_index]
-			print("{} Filter changed to {} ({}--{} nm)".format(string_prefix,_active,_active[0],_active[-1]))
+			print("{} Filter changed to {} ({}--{} nm)".format(edl.string_prefix,_active,selected_filter[0],selected_filter[-1]))
 
 
 	def recalculate_seeing(self,caller):
@@ -423,7 +444,7 @@ class simulate:
 		self.percent = self.percent_u * self.percent_l # can use error if you add it later...
 		self.extension = self.seeing * self.slit_size
 		if not sss:
-			print("{} Seeing changed to {}".format(string_prefix,self.seeing))
+			print("{} Seeing changed to {}".format(edl.string_prefix,self.seeing))
 
 
 	def recalculate_sky_flux(self,caller):
@@ -476,10 +497,10 @@ class simulate:
 		if (self.bin_size > 0) and (self.bin_size < 5):
 			self.readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (self.bin_size**2))
 			if not sss:
-				print('{} Pixel binning: ({}x{})'.format(string_prefix,self.bin_size,self.bin_size))
-				print('{} Extent: {} arcsec^2\n{} num pixels/resel: {} px\n{} spectral resolution: {} px\n{} spatial resolution: {} px'.format(string_prefix,extent,string_prefix,int(math.ceil(npix)),string_prefix,spectral_resolution,string_prefix,spatial_resolution))
+				print('{} Pixel binning: ({}x{})'.format(edl.string_prefix,self.bin_size,self.bin_size))
+				print('{} Extent: {} arcsec^2\n{} num pixels/resel: {} px\n{} spectral resolution: {} px\n{} spatial resolution: {} px'.format(edl.string_prefix,extent,edl.string_prefix,int(math.ceil(npix)),edl.string_prefix,spectral_resolution,edl.string_prefix,spatial_resolution))
 		else:
-			raise ValueError('{} Invalid pixel binning option: {}'.format(string_prefix,self.bin_size))
+			raise ValueError('{} Invalid pixel binning option: {}'.format(edl.string_prefix,self.bin_size))
 
 
 	def recalculate_atmospheric_extinction(self,caller):
@@ -490,9 +511,4 @@ class simulate:
 		if (self.wavelength >= dfs.default_limits_wavelength[0]) and (self.wavelength <= dfs.default_limits_wavelength[1]):
 			self.plot_step = self.wavelength[2] - self.wavelength[1]
 		else: # technically shouldn't happen...
-			raise ValueError('{} Invalid wavelength extrema: {}'.format(string_prefix,self.wavelength))
-
-
-
-if __name__ == '__main__':
-	main()
+			raise ValueError('{} Invalid wavelength extrema: {}'.format(edl.string_prefix,self.wavelength))
