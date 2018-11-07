@@ -82,11 +82,15 @@ class simulate:
 	''' tier 2 '''
 
 	def recalculate_counts(self,caller):
-		pass # recalc counts stuff
+		flux = self.flux_y
+		self.power = flux * area * exp_time * plot_step
+		self.counts = np.divide(np.divide(self.power,np.divide((const.h.value * const.c.value),self.wavelength)),1e10)
 
 
 	def recalculate_counts_noise(self,caller):
-		pass # recalc counts noise stuff
+		recalculate_sky_flux(caller)
+		recalculate_extension(caller)
+		self.counts_noise = np.multiply(np.multiply(self.sky_flux,self.extension),(self.area*self.exp_time*self.plot_step))
 
 
 	def recalculate_percent(self,caller):
@@ -138,13 +142,18 @@ class simulate:
 			print('Invalid mag_sys_opt!')
 
 		del_mag = mag - mag_model
-		self.output_lambda = object_x
-		self.output_flux = np.multiply(object_y,10 ** np.negative(del_mag/2.5))
+		output_lambda = object_x
+		output_flux = np.multiply(object_y,10 ** np.negative(del_mag/2.5))
+		old_res = output_lambda[2] - output_lambda[1]
+		if (old_res < plot_step):
+			self.flux_y = spectres(self.wavelength,object_x,(output_flux*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
+		else:
+			self.flux_y = spectres(self.wavelength,object_x,(output_flux*1e-03))
 
 
 	''' tier 3 '''
 
-	def change_grating(self,caller):
+	def change_grating_opt(self,caller):
 		if self.grating_opt in edl.grating_opt_keys[:2]: # low resolution
 			self.delta_lambda = edl.dld[0] * self.slit_size / 0.7
 		elif self.grating_opt in edl.grating_opt_keys[3:]:
@@ -170,9 +179,10 @@ class simulate:
 
 	def change_moon_days(self,caller):
 		if moon_days in moon_days_keys:
-			sky_background = skyfiles[(int(np.where(np.asarray(moon_days_keys)==moon_days)[0]))]
+			self.sky_background = skyfiles[(int(np.where(np.asarray(moon_days_keys)==moon_days)[0]))]
 		else:
 			raise ValueError('{} Invalid number of days since new moon: {}'.format(string_prefix,self.moon_days))
+		recalculate_counts_noise(caller=caller)
 
 
 	def change_telescope_mode(self,caller):
@@ -204,3 +214,38 @@ class simulate:
 			lambda_max = self.wavelength[-1]
 
 		self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
+
+
+	def recalculate_seeing(self,caller):
+		_sigma = self.seeing / gaussian_sigma_to_fwhm
+		funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.multiply(np.square(_sigma),2))))
+		self.percent_u,self.percent_err_u = integrate.quad(funx,(-slit_size/2),(slit_size/2))
+		self.percent_l,self.percent_err_l = integrate.quad(funx,(-seeing/2),(seeing/2))
+		self.percent = self.percent_u * self.percent_l # can use error if you add it later...
+		self.extension = self.seeing * self.slit_size
+
+
+	def recalculate_sky_flux(self,caller):
+		sky_x = self.sky_background[0] * 1e4
+		sky_y = self.sky_background[1] / 1e4
+		old_res = sky_x[2] - sky_x[1]
+		_sigma = self.delta_lambda / gaussian_sigma_to_fwhm
+		_x = np.arange((-5*_sigma),(5*_sigma),old_res)
+		degrade = funx(_x)/np.trapz(funx(_x))
+		sky_y = convolve_fft(sky_y,degrade)
+		self.sky_flux = spectres(self.wavelength,sky_x,sky_y)
+
+	def recalculate_dichroic(self,caller):
+		if (self.channel is 'blue') or (self.channel is 'both'):
+			fblue_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y1, kind='cubic')
+			self.blue_dichro = fblue_dichro(self.wavelength)
+		if (self.channel is 'red') or (self.channel is 'both'):
+			fred_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y2, kind='cubic')
+			self.red_dichro = fred_dichro(self.wavelength)
+
+	def recalculate_grating(self,caller):
+		if (self.channel is 'blue') or (self.channel is 'both'):
+			self.blue_grating = spectres(self.wavelength,(dh.grating1[0]*10),dh.grating1[1])
+		if (self.channel is 'red') or (self.channel is 'both'):
+			self.red_grating = spectres(self.wavelength,(dh.grating2[0]*10),dh.grating2[1])
+
