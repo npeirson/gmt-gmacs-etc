@@ -41,7 +41,7 @@ class simulate:
 
 	''' tier 0 '''
 
-	def refresh(self,caller,tabs=tabs): # default cb_obj as immutable
+	def refresh(self,caller=cb_obj.name,tabs=tabs): # default cb_obj as immutable
 		# direct the changed values
 		if (tabs.active in [_opt for _opt in range(3)]):
 			if caller in edl.signal_components:
