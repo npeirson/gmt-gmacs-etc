@@ -52,20 +52,11 @@ class simulate:
 		self.slit_size = num_router(slit_size)
 		self.redshift = num_router(redshift)
 		self.moon_days = num_router(moon_days)
-
-
 		if isinstance(wavelength,np.ndarray):
 			self.wavelength = wavelength
 			self.plot_step = self.wavelength[2] - self.wavelength[1]
-		
-		if isinstance(slit_size,float) or isinstance(slit_size,int):
-			self.slit_size = slit_size
-		if isinstance(redshift,float)
-			self.redshift = redshift
-		if isinstnace(moon_days,float) or isinstance()
-
-		self.slit_size = slit_size # * u.arcsec
-		self.moon_days = moon_days
+		else:
+			raise TypeError("{} Invalid wavelength type: {} (must be array-like)".format(string_prefix,type(wavelength)))
 		self.__dict__ = dict(kwargs) # pick up any optionals
 
 		self.change('wavelength') # initializing plots is as easy as this
