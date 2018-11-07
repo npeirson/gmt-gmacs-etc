@@ -1,16 +1,164 @@
 # this uses a caller singleton and enumerated caller-association groups to update only necessary data.
 # the else statement catches errors and changes from wavelength or channel
 
+import time
 import math
-import numpy as np
+
 import values as edl
 import defaults as dfs
 import datahandler as dh
+
+import numpy as np
 from spectres import spectres
 from scipy import interpolate, integrate
+
 from astropy import constants as const
 from astropy.convolution import convolve, convolve_fft
 from astropy.stats import gaussian_sigma_to_fwhm
+
+from bokeh.models import ColumnDataSource, glyphs
+from bokeh.models.widgets import Dropdown, RadioButtonGroup, CheckboxButtonGroup, Slider, TextInput, RangeSlider, Paragraph, Panel, Tabs, Div
+
+''' build user interface '''
+print('Building...')
+time_start = time.time()
+
+output_file(dfs.string_pagename, title=dfs.site_title, mode='cdn')
+
+
+''' widgets '''
+# radio button groups
+widget_telescope_sizes = RadioButtonGroup(labels=dfs.string_telescope_sizes, active=0, name=dfs.string_widget_names[0])
+widget_object_types = RadioButtonGroup(labels=dfs.string_object_types, active=dfs.default_object_types, name=dfs.string_widget_names[1])
+widget_galaxy_type = Dropdown(label=dfs.string_object_types_types[1],menu=dfs.string_galaxy_types, name=dfs.string_widget_names[2])
+widget_galaxy_type.disabled = True # change if galaxies default
+widget_mag_type = RadioButtonGroup(labels=dfs.string_magnitude_three,active=0, name=dfs.string_widget_names[3])
+widget_grating_types = RadioButtonGroup(labels=dfs.string_grating_types, active=0, name=dfs.string_widget_names[4])
+widget_moon_days = RadioButtonGroup(labels=dfs.string_moon_days, active=0, name=dfs.string_widget_names[5]) # TODO: need title for this, would be string_title[7]
+widget_binned_pixel_scale_mode = RadioButtonGroup(labels=dfs.string_binned_pixel_scale_modes, active=0)
+widget_binned_pixel_scale = RadioButtonGroup(name=dfs.string_binned_pixel_scale_header, labels=dfs.string_binned_pixel_scale_labels,active=dfs.default_binned_pixel_scale_uhh)
+# dropdown menus... there's one up there, above, too... could probably move it down here
+widget_types_types = Dropdown(label=dfs.string_object_types_types[0],menu=dfs.string_star_types, name=dfs.string_widget_names[6]) # TODO: dynamically set these
+widget_filters = Dropdown(label=dfs.string_widget_labels[0],menu=dfs.string_filters_menu,width=100, name=dfs.string_widget_names[7])
+# text input
+widget_mag_input = TextInput(value=dfs.default_magnitude_two,title=dfs.string_suffixes[0].title(),width=100)
+widget_redshift = TextInput(value=str(dfs.default_redshift), title=dfs.string_title[3])
+#widget_binned_pixel_scale = TextInput(value=dfs.default_binned_pixel_scale,title=dfs.string_binned_pixel_scale_manual) # TODO: hide on default
+# sliders
+widget_exposure_time = Slider(start=dfs.default_exposure_time_start, end=dfs.default_exposure_time_end,
+	value=dfs.default_exposure_time, step=dfs.default_exposure_time_step, title=dfs.string_title[4], name=dfs.string_widget_names[8])
+widget_seeing = Slider(start=dfs.default_seeing_start,end=dfs.default_seeing_end,
+	value=dfs.default_seeing, step=dfs.default_seeing_step,title=dfs.string_title[5], name=dfs.string_widget_names[9])
+widget_slit_width = Slider(start=dfs.default_slit_width_start,end=dfs.default_slit_width_end,
+	value=dfs.default_slit_width,step=dfs.default_slit_width_step,title=dfs.string_title[6], name=dfs.string_widget_names[10])
+# range sliders
+widget_wavelengths = RangeSlider(start=dfs.default_limits_wavelength[0], end=dfs.default_limits_wavelength[1],
+	value=(dfs.default_limits_wavelength), step=dfs.default_wavelength_step,
+	title=dfs.string_title[8], name=dfs.string_widget_names[11])
+
+# other widgets
+widget_header = Div(text='<h1>'+dfs.string_header_one+'</h1><h3>'+dfs.string_header_two+'</h3>',width=500,height=70)
+widget_plot_types = CheckboxButtonGroup(labels=dfs.string_plot_types, active=dfs.default_plot_types, name=dfs.string_widget_names[12]) # TODO: make double-off == double-on
+widget_message_box = Paragraph(text='hello')
+widget_plot_step = Slider(start=dfs.default_plot_step[1], end=dfs.default_plot_step[2], value=dfs.default_plot_step[0], step=dfs.default_plot_step_step, title=dfs.string_plot_step)
+widget_moon_days_header = Paragraph(text=dfs.string_title[7])
+
+
+''' figures and glyphs '''
+# build figures
+p0 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
+			x_axis_label=dfs.string_axis_labels[0][0],y_axis_label=dfs.string_axis_labels[0][1])
+p1 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
+			x_axis_label=dfs.string_axis_labels[1][0],y_axis_label=dfs.string_axis_labels[1][1])
+p2 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
+			x_axis_label=dfs.string_axis_labels[2][0],y_axis_label=dfs.string_axis_labels[2][1])
+p3 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
+			x_axis_label=dfs.string_axis_labels[3][0],y_axis_label=dfs.string_axis_labels[3][1])
+p4 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
+			x_axis_label=dfs.string_axis_labels[4][0],y_axis_label=dfs.string_axis_labels[4][1])
+p5 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
+			x_axis_label=dfs.string_axis_labels[5][0],y_axis_label=dfs.string_axis_labels[5][1])
+p6 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
+			x_axis_label=dfs.string_axis_labels[6][0],y_axis_label=dfs.string_axis_labels[6][1])
+p7 = figure(plot_width=dfs.default_plot_width, plot_height=dfs.default_plot_height,sizing_mode=dfs.default_plot_sizing_mode,
+			x_axis_label=dfs.string_axis_labels[7][0],y_axis_label=dfs.string_axis_labels[7][1],x_range=ranges.Range1d(start=dfs.default_start_wavelength, end=dfs.default_stop_wavelength))
+figures = [p0,p1,p2,p3,p4,p5,p6,p7]
+
+
+# assemble graph tabs
+tab0 = Panel(child=p0,title=dfs.string_calculate_types[0])
+tab1 = Panel(child=p1,title=dfs.string_calculate_types[1])
+tab2 = Panel(child=p2,title=dfs.string_calculate_types[2])
+tab3 = Panel(child=p3,title=dfs.string_calculate_types[3].title())
+tab4 = Panel(child=p4,title=dfs.string_calculate_types[4].title())
+tab5 = Panel(child=p5,title=dfs.string_calculate_types[5].title())
+tab6 = Panel(child=p6,title=dfs.string_calculate_types[6])
+tab7 = Panel(child=p7,title=dfs.string_calculate_types[7].title())
+tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7],name='tabs') # string_title[10]
+
+# snr
+cds_snr_red = ColumnDataSource(dict(xr=dfs.default_wavelength,yr=panda_14d[panda_14d.columns[0]]))
+cds_snr_blue = ColumnDataSource(dict(xb=dfs.default_wavelength,yb=panda_14d[panda_14d.columns[1]]))
+gly_snr_red = glyphs.Line(x="xr",y="yr",line_color='red')
+gly_snr_blue = glyphs.Line(x="xb",y="yb",line_color='blue')
+p0.add_glyph(cds_snr_red,gly_snr_red)
+p0.add_glyph(cds_snr_blue,gly_snr_blue)
+
+# obs spec noise TODO put these on one plot and replace p3 ith manifold
+cds_os_noise_red = ColumnDataSource(dict(xr=[],yr=[]))
+cds_os_noise_blue = ColumnDataSource(dict(xb=[],yb=[]))
+gly_os_noise_red = glyphs.Line(x="xr",y="yr")
+gly_os_noise_blue = glyphs.Line(x="xb",y="yb")
+p1.add_glyph(cds_os_noise_red,gly_os_noise_red)
+p1.add_glyph(cds_os_noise_blue,gly_os_noise_blue)
+
+# obs spec no noise
+cds_os_nonoise_red = ColumnDataSource(dict(xr=[],yr=[]))
+cds_os_nonoise_blue = ColumnDataSource(dict(xb=[],yb=[]))
+gly_os_nonoise_red = glyphs.Line(x="xr",y="yr")
+gly_os_nonoise_blue = glyphs.Line(x="xb",y="yb")
+p2.add_glyph(cds_os_nonoise_red,gly_os_nonoise_red)
+p2.add_glyph(cds_os_nonoise_blue,gly_os_nonoise_blue)
+
+cds_sky_red = ColumnDataSource(dict(xr=[],yr=[]))
+cds_sky_blue = ColumnDataSource(dict(xb=[],yb=[]))
+gly_sky_red = glyphs.Line(x="xr",y="yr")
+gly_sky_blue = glyphs.Line(x="xb",y="yb")
+p3.add_glyph(cds_sky_red,gly_sky_red)
+p3.add_glyph(cds_sky_blue,gly_sky_blue)
+
+# dichroic throughput
+cds_dichroic_red = ColumnDataSource(dict(xr=dichro_x,yr=dichro_y1))
+cds_dichroic_blue = ColumnDataSource(dict(xb=dichro_x,yb=dichro_y2))
+gly_dichroic_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
+gly_dichroic_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
+p4.add_glyph(cds_dichroic_red,gly_dichroic_red)
+p4.add_glyph(cds_dichroic_blue,gly_dichroic_blue)
+
+# grating throughput
+cds_grating_red = ColumnDataSource(dict(xr=grating_red_1,yr=grating_red_2))
+cds_grating_blue = ColumnDataSource(dict(xb=grating_blue_1,yb=grating_blue_2))
+gly_grating_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
+gly_grating_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
+p5.add_glyph(cds_grating_red,gly_grating_red)
+p5.add_glyph(cds_grating_blue,gly_grating_blue)
+
+# ccd efficiency
+cds_ccd_red = ColumnDataSource(dict(xr=ccd_efficiency_red_1,yr=ccd_efficiency_red_2))
+cds_ccd_blue = ColumnDataSource(dict(xb=ccd_efficiency_blue_1,yb=ccd_efficiency_blue_2))
+gly_ccd_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
+gly_ccd_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
+p6.add_glyph(cds_ccd_red,gly_ccd_red)
+p6.add_glyph(cds_ccd_blue,gly_ccd_blue)
+
+# atmospheric extinction
+cds_atmo_ext = ColumnDataSource(dict(x=atmo_ext_x, y=atmo_ext_y))
+gly_atmo_ext = glyphs.Line(x="x",y="y",line_width=dfs.default_line_width,line_color=dfs.default_line_color_else)
+p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
+
+# other sources for computation pipeline
+cds_signal = ColumnDataSource(dict(signal=[]))
+cds_noise = ColumnDataSource(dict(noise=[]))
 
 
 # handles various input forms
