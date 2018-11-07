@@ -1,5 +1,5 @@
 # this uses a caller singleton and enumerated caller-association groups to update only necessary data.
-# the else statement catches errors and wavelength changes.
+# the else statement catches errors and changes from wavelength or channel
 
 
 import numpy as np
@@ -28,7 +28,7 @@ class simulate:
 		
 		object_type = type_router(object_type)
 		grating_opt = type_router(grating_opt)
-		telescope_mode = type_router(telescope_mode)
+		telescope_mode = type_router(telescope_mode)		
 		self.plot_step = wavelength[2] - wavelength[1]
 
 
@@ -36,38 +36,67 @@ class simulate:
 
 	def refresh(self,caller,tabs=tabs): # default cb_obj as immutable
 		# direct the changed values
-		if caller in edl.signal_components:
-			recalculate_signal(caller)
-		if caller in edl.noise_components:
-			recalculate_noise(caller)
+		if (tabs.active in range(2)):
+			if caller in edl.signal_components:
+				self.recalculate_signal(caller)
+			if caller in edl.noise_components:
+				self.recalculate_noise(caller)
+			if caller in edl.error_components:
+				self.recalculate_error(caller)
+			else:
+				self.recalculate_signal(caller)
+				self.recalculate_noise(caller)
+				self.recalculate_error(caller)
+		
+			if (tabs.active == 0): # snr
+				self.recalculate_snr(caller)
+				plot_y1 = self.snr_blue
+				plot_y2 = self.snr_red
+			elif (tabs.active == 1): # obs spec no noise
+				if self.noise:
+					plot_y1 = np.add(self.signal_blue,self.error_blue)
+					plot_y2 = np.add(self.signal_red,self.error_blue)
+				else:
+					plot_y1 = self.signal_blue
+					plot_y2 = self.signal_red
+			elif (tabs.active == 2): # obs sky background
+				plot_y1 = self.error_blue
+				plot_y2 = self.error_red
+			else:
+				pass # pass to other options
+
 		else:
-			recalculate_signal(caller)
-			recalculate_noise(caller)
-		# recalculate only necessary stuff
-		if (tabs.active == 0): # snr
-			recalculate_snr(caller)
-		elif (tabs.active == 1): # obs spec no noise
-			pass # just send signal back :)
-		elif (tabs.active == 2): # obs spec noise
-			recalculate_error(caller)
-		elif (tabs.active == 3): #obs sky background
-			pass # send noise
-		return the_stuff
+			if (tabs.active == 3): # dichroic throughput
+				plot_y1 = self.dichro_blue
+				plot_y2 = self.dichro_red
+			elif (tabs.active == 4): # grating throughput
+				plot_y1 = self.grating_blue
+				plot_y2 = self.grating_red
+			elif (tabs.active == 5): # CCD QE
+				plot_y1 = self.ccd_blue
+				plot_y2 = self.ccd_red
+			elif (tabs.active == 6): # atmospheric extinction
+				plot_y1 = self.extinction
+				plot_y2 = self.extinction
+			else:
+				raise ValueError("{} Invalid active tab: {}".format(string_prefix,tabs.active))
+
+		return plot_y1,plot_y2
 
 
 	def recalculate_snr(self,caller):
 		if (self.channel == 'blue') or (self.channel == 'both'):
-			self.snr_blue = np.divide(self.blue_signal,np.sqrt(self.blue_signal + self.blue_noise + np.square(self.readnoise)))
+			self.snr_blue = np.divide(self.signal_blue,np.sqrt(self.signal_blue + self.noise_blue + np.square(self.readnoise)))
 		if (self.channel == 'red') or (self.channel == 'both'):
-			self.snr_red = np.divide(self.red_signal,np.sqrt(self.red_signal + self.red_noise + np.square(self.readnoise)))
+			self.snr_red = np.divide(self.signal_red,np.sqrt(self.signal_red + self.noise_red + np.square(self.readnoise)))
 
 
 	def recalculate_error(self,caller):
 		if (self.self.channel == 'blue') or (self.channel == 'both'):
-			sigma_blue = np.sqrt(self.blue_signal + self.blue_noise + np.square(self.readnoise))
+			sigma_blue = np.sqrt(self.signal_blue + self.noise_blue + np.square(self.readnoise))
 			self.error_blue = np.random.normal(loc=0, scale=sigma_blue,size=len(self.snr_blue))
 		if (self.channel == 'red') or (self.channel == 'both'):
-			sigma_red = np.sqrt(self.red_signal + self.red_noise + np.square(self.readnoise))
+			sigma_red = np.sqrt(self.signal_red + self.noise_red + np.square(self.readnoise))
 			self.error_red = np.random.normal(loc=0, scale=sigma_red,size=len(self.snr_red))
 
 
@@ -84,9 +113,9 @@ class simulate:
 			pass # recalc all stuff
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
-			self.blue_signal = np.multiply((self.counts * self.percent), self.blue_total_eff)
+			self.signal_blue = np.multiply((self.counts * self.percent), self.total_eff_blue)
 		if (self.channel == 'red') or (self.channel == 'both'):
-			self.red_signal = np.multiply((self.counts * self.percent), self.red_total_eff)
+			self.signal_red = np.multiply((self.counts * self.percent), self.total_eff_red)
 
 	def recalculate_noise(self,caller):
 		if caller in edl.counts_noise_components:
@@ -95,9 +124,10 @@ class simulate:
 			pass # recalc total efficiency noise stuff
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
-			self.blue_noise = np.multiply(self.counts_noise,self.blue_total_eff_noise)
+			self.noise_blue = np.multiply(self.counts_noise,self.total_eff_noise_blue)
 		if (channel == 'red') or (self.channel == 'both'):
-			self.red_noise = np.multiply(self.counts_noise,self.red_total_eff_noise)
+			self.noise_red = np.multiply(self.counts_noise,self.total_eff_noise_red)
+
 
 	''' tier 2 '''
 
@@ -108,42 +138,42 @@ class simulate:
 
 
 	def recalculate_counts_noise(self,caller):
-		recalculate_sky_flux(caller)
-		recalculate_extension(caller)
+		self.recalculate_sky_flux(caller)
+		self.recalculate_extension(caller)
 		self.counts_noise = np.multiply(np.multiply(self.sky_flux,self.extension),(self.area*self.exposure_time*self.plot_step))
 
 
 	def recalculate_percent(self,caller):
-		recalculate_seeing(caller)
+		self.recalculate_seeing(caller)
 		# this is a forwarding function to help me keep my head-thoughts straight
 
 
 	def recalculate_efficiency(self,caller):
 		if (self.channel == 'blue') or (self.channel == 'both'):
-			self.blue_total_eff = np.multiply(np.multiply(self.blue_dichro,self.blue_grating),np.multiply((blue_ccd * (edl.coating_eff_blue * self.extinction)),np.square(mirror)))
+			self.total_eff_blue = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),np.multiply((self.ccd_blue * (edl.coating_eff_blue * self.extinction)),np.square(mirror)))
 		if (self.channel == 'red') or (self.channel == 'both'):
-			self.red_total_eff = np.multiply(np.multiply(self.red_dichro,self.red_grating),np.multiply((self.red_ccd * (edl.coating_eff_red * self.extinction)),np.square(mirror)))
+			self.total_eff_red = np.multiply(np.multiply(self.dichro_red,self.grating_red),np.multiply((self.ccd_red * (edl.coating_eff_red * self.extinction)),np.square(mirror)))
 
 
 	def recalculalte_efficiency_noise(self,caller):
 		if (self.channel == 'blue') or (self.channel == 'both'):
-			self.blue_total_eff_noise = np.multiply(np.multiply(self.blue_dichro,self.blue_grating),(self.blue_ccd * np.square(self.mirror) * edl.coating_eff_blue))
+			self.total_eff_noise_red = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),(self.ccd_blue * np.square(self.mirror) * edl.coating_eff_blue))
 		if (self.channel == 'red') or (self.channel == 'both'):
-			self.red_total_eff_noise = np.multiply(np.multiply(self.red_dichro,self.red_grating),(self.red_ccd * np.square(self.mirror) * edl.coating_eff_red))
+			self.total_eff_noise_blue = np.multiply(np.multiply(self.dichro_red,self.grating_red),(self.ccd_red * np.square(self.mirror) * edl.coating_eff_red))
 
 
 	def recalculate_flux(self,caller):
 		# heal identicalities
-		lambda_A[0] = lambda_A[0] + plot_step
-		lambda_A[-1] = lambda_A[-1] - plot_step
+		self.lambda_A[0] = lambda_A[0] + plot_step
+		self.lambda_A[-1] = lambda_A[-1] - plot_step
 
 		ftrans = interpolate.interp1d(selected_filter[0],selected_filter[1], kind='cubic')
-		trans = ftrans(lambda_A) #spectres(lambda_A,selected_filter[0],selected_filter[1])
+		trans = ftrans(self.lambda_A)
 
-		_extinction = spectres(lambda_A,atmo_ext_x,atmo_ext_y)
+		_extinction = spectres(self.lambda_A,dh.atmo_ext_x,dh.atmo_ext_y)
 
-		flux = flux_A * 1e10
-		_lambda = lambda_A / 1e10
+		flux = self.flux_A * 1e10
+		_lambda = self.lambda_A / 1e10
 
 		num_zeros = 0
 		for lux in flux:
@@ -154,14 +184,13 @@ class simulate:
 		if (num_zeros >= (flux.shape[0]/5)):
 			if (num_zeros == flux.shape[0]):
 				print('No flux in this bandpass!')
-				output_flux = np.zeros(wavelength.shape[0])
+				output_flux = np.zeros(self.wavelength.shape[0])
 			else:
 				percent_zeros = (num_zeros / flux.shape[0]) * 100
 				print('{}% of this bandpass has zero flux'.format(percent_zeros))
 
 		if (mag_sys_opt == 'vega'):
-			flux_vega = spectres(wavelength,vega[0],vega[1]) * 1e10 # probably not right Need to read in vega file, not defined right now
-			print(vega[0])
+			flux_vega = spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
 			mag_model = -2.5 * np.log10(np.divide(math.fsum(flux * _extinction * _lambda * trans),math.fsum(flux_vega * trans * _lambda * _extinction))) + 0.03
 		elif (mag_sys_opt == 'ab'):
 			mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * _extinction *_lambda) / math.fsum(trans * _lambda * _extinction * (const.c.value/np.square(_lambda))))
@@ -169,13 +198,12 @@ class simulate:
 			print('Invalid mag_sys_opt!')
 
 		del_mag = mag - mag_model
-		output_lambda = object_x
 		output_flux = np.multiply(object_y,10 ** np.negative(del_mag/2.5))
-		old_res = output_lambda[2] - output_lambda[1]
+		old_res = self.object_x[2] - self.object_x[1]
 		if (old_res < plot_step):
-			self.flux_y = spectres(self.wavelength,object_x,(output_flux*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
+			self.flux_y = spectres(self.wavelength,self.object_x,(output_flux*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
 		else:
-			self.flux_y = spectres(self.wavelength,object_x,(output_flux*1e-03))
+			self.flux_y = spectres(self.wavelength,self.object_x,(output_flux*1e-03))
 
 
 	''' tier 3 '''
@@ -209,7 +237,7 @@ class simulate:
 			self.sky_background = skyfiles[(int(np.where(np.asarray(moon_days_keys)==moon_days)[0]))]
 		else:
 			raise ValueError('{} Invalid number of days since new moon: {}'.format(string_prefix,self.moon_days))
-		recalculate_counts_noise(caller=caller)
+		self.recalculate_counts_noise(caller=caller)
 
 
 	def change_telescope_mode(self,caller):
@@ -266,26 +294,26 @@ class simulate:
 	def recalculate_dichroic(self,caller):
 		if (self.channel is 'blue') or (self.channel is 'both'):
 			fblue_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y1, kind='cubic')
-			self.blue_dichro = fblue_dichro(self.wavelength)
+			self.dichro_blue = fblue_dichro(self.wavelength)
 		if (self.channel is 'red') or (self.channel is 'both'):
 			fred_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y2, kind='cubic')
-			self.red_dichro = fred_dichro(self.wavelength)
+			self.dichro_red = fred_dichro(self.wavelength)
 
 
 	def recalculate_grating(self,caller):
 		if (self.channel is 'blue') or (self.channel is 'both'):
-			self.blue_grating = spectres(self.wavelength,(dh.grating1[0]*10),dh.grating1[1])
+			self.grating_blue = spectres(self.wavelength,(dh.grating1[0]*10),dh.grating1[1])
 		if (self.channel is 'red') or (self.channel is 'both'):
-			self.red_grating = spectres(self.wavelength,(dh.grating2[0]*10),dh.grating2[1])
+			self.grating_red = spectres(self.wavelength,(dh.grating2[0]*10),dh.grating2[1])
 
 
 	def recalculate_ccd(self,caller):
-		if (channel is 'blue') or (channel is 'both'):
+		if (self.channel is 'blue') or (self.channel is 'both'):
 			fblue_ccd = interpolate.interp1d((dh.ccd1[0]*10),dh.ccd1[1], kind='cubic')
-			self.blue_ccd = fblue_ccd(self.wavelength)
-		if (channel is 'red') or (channel is 'both'):
+			self.ccd_blue = fblue_ccd(self.wavelength)
+		if (self.channel is 'red') or (self.channel is 'both'):
 			fred_ccd = interpolate.interp1d((dh.ccd2[0]*10),dh.ccd2[1], kind='cubic')
-			self.red_ccd = fred_ccd(wavelength)
+			self.ccd_red = fred_ccd(self.wavelength)
 
 	def recalculate_readnoise(self,caller):
 		spectral_resolution = math.ceil((self.slit_size/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer
@@ -294,9 +322,10 @@ class simulate:
 		npix = extent/(0.7/12)**2
 		
 		rn = edl.rn_default
+
 		if (self.bin_size > 0) and (self.bin_size < 5):
 			print('[ info ] : Pixel binning: ({}x{})'.format(self.bin_size,self.bin_size))
-			readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (self.bin_size**2))
+			self.readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (self.bin_size**2))
 			print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels/resel: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
 		else:
 			raise ValueError('{} Invalid pixel binning option ({})'.format(string_prefix,self.bin_size))
