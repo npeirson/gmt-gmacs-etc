@@ -19,13 +19,17 @@ def type_router(_obj):
 
 class simulate:
 	string_prefix = '[ etc ] :'
+	fmirror = interpolate.interp1d(mirror_file_x,mirror_file_y, kind='cubic')
+	mirror = fmirror(wavelength)
 
 	def __init__(self,telescope_mode='first',wavelength=np.arange(3200,10360,edl.dld[0]/3.),exposure_time=3600,object_type='a5v',
-		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,noise=False,channel='both'):
+		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,noise=False,
+		bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both'):
+		
 		object_type = type_router(object_type)
 		grating_opt = type_router(grating_opt)
 		telescope_mode = type_router(telescope_mode)
-		plot_step = wavelength[2] - wavelength[1]
+		self.plot_step = wavelength[2] - wavelength[1]
 
 
 	''' tier 0 '''
@@ -52,11 +56,19 @@ class simulate:
 
 
 	def recalculate_snr(self,caller):
-		pass
+		if (self.channel == 'blue') or (self.channel == 'both'):
+			self.snr_blue = np.divide(self.blue_signal,np.sqrt(self.blue_signal + self.blue_noise + np.square(self.readnoise)))
+		if (self.channel == 'red') or (self.channel == 'both'):
+			self.snr_red = np.divide(self.red_signal,np.sqrt(self.red_signal + self.red_noise + np.square(self.readnoise)))
 
 
 	def recalculate_error(self,caller):
-		pass
+		if (self.self.channel == 'blue') or (self.channel == 'both'):
+			sigma_blue = np.sqrt(self.blue_signal + self.blue_noise + np.square(self.readnoise))
+			self.error_blue = np.random.normal(loc=0, scale=sigma_blue,size=len(self.snr_blue))
+		if (self.channel == 'red') or (self.channel == 'both'):
+			sigma_red = np.sqrt(self.red_signal + self.red_noise + np.square(self.readnoise))
+			self.error_red = np.random.normal(loc=0, scale=sigma_red,size=len(self.snr_red))
 
 
 	''' tier 1 '''
@@ -71,6 +83,10 @@ class simulate:
 		else:
 			pass # recalc all stuff
 
+		if (self.channel == 'blue') or (self.channel == 'both'):
+			self.blue_signal = np.multiply((self.counts * self.percent), self.blue_total_eff)
+		if (self.channel == 'red') or (self.channel == 'both'):
+			self.red_signal = np.multiply((self.counts * self.percent), self.red_total_eff)
 
 	def recalculate_noise(self,caller):
 		if caller in edl.counts_noise_components:
@@ -78,30 +94,42 @@ class simulate:
 		elif caller in edl.efficiency_noise_components:
 			pass # recalc total efficiency noise stuff
 
+		if (self.channel == 'blue') or (self.channel == 'both'):
+			self.blue_noise = np.multiply(self.counts_noise,self.blue_total_eff_noise)
+		if (channel == 'red') or (self.channel == 'both'):
+			self.red_noise = np.multiply(self.counts_noise,self.red_total_eff_noise)
 
 	''' tier 2 '''
 
 	def recalculate_counts(self,caller):
 		flux = self.flux_y
-		self.power = flux * area * exp_time * plot_step
+		self.power = flux * self.area * self.exposure_time * self.plot_step
 		self.counts = np.divide(np.divide(self.power,np.divide((const.h.value * const.c.value),self.wavelength)),1e10)
 
 
 	def recalculate_counts_noise(self,caller):
 		recalculate_sky_flux(caller)
 		recalculate_extension(caller)
-		self.counts_noise = np.multiply(np.multiply(self.sky_flux,self.extension),(self.area*self.exp_time*self.plot_step))
+		self.counts_noise = np.multiply(np.multiply(self.sky_flux,self.extension),(self.area*self.exposure_time*self.plot_step))
 
 
 	def recalculate_percent(self,caller):
-		pass # recalc percent stuff
+		recalculate_seeing(caller)
+		# this is a forwarding function to help me keep my head-thoughts straight
 
 
 	def recalculate_efficiency(self,caller):
-		pass # recalc efficiency stuff
+		if (self.channel == 'blue') or (self.channel == 'both'):
+			self.blue_total_eff = np.multiply(np.multiply(self.blue_dichro,self.blue_grating),np.multiply((blue_ccd * (edl.coating_eff_blue * self.extinction)),np.square(mirror)))
+		if (self.channel == 'red') or (self.channel == 'both'):
+			self.red_total_eff = np.multiply(np.multiply(self.red_dichro,self.red_grating),np.multiply((self.red_ccd * (edl.coating_eff_red * self.extinction)),np.square(mirror)))
+
 
 	def recalculalte_efficiency_noise(self,caller):
-		pass # recalc efficienccy noise stuff
+		if (self.channel == 'blue') or (self.channel == 'both'):
+			self.blue_total_eff_noise = np.multiply(np.multiply(self.blue_dichro,self.blue_grating),(self.blue_ccd * np.square(self.mirror) * edl.coating_eff_blue))
+		if (self.channel == 'red') or (self.channel == 'both'):
+			self.red_total_eff_noise = np.multiply(np.multiply(self.red_dichro,self.red_grating),(self.red_ccd * np.square(self.mirror) * edl.coating_eff_red))
 
 
 	def recalculate_flux(self,caller):
@@ -112,7 +140,7 @@ class simulate:
 		ftrans = interpolate.interp1d(selected_filter[0],selected_filter[1], kind='cubic')
 		trans = ftrans(lambda_A) #spectres(lambda_A,selected_filter[0],selected_filter[1])
 
-		extinction = spectres(lambda_A,atmo_ext_x,atmo_ext_y)
+		_extinction = spectres(lambda_A,atmo_ext_x,atmo_ext_y)
 
 		flux = flux_A * 1e10
 		_lambda = lambda_A / 1e10
@@ -134,10 +162,9 @@ class simulate:
 		if (mag_sys_opt == 'vega'):
 			flux_vega = spectres(wavelength,vega[0],vega[1]) * 1e10 # probably not right Need to read in vega file, not defined right now
 			print(vega[0])
-			mag_model = -2.5 * np.log10(np.divide(math.fsum(flux * extinction * _lambda * trans),math.fsum(flux_vega * trans * _lambda * extinction))) + 0.03
+			mag_model = -2.5 * np.log10(np.divide(math.fsum(flux * _extinction * _lambda * trans),math.fsum(flux_vega * trans * _lambda * _extinction))) + 0.03
 		elif (mag_sys_opt == 'ab'):
-			#mag_model = -48.60 - 2.5 * np.log10(np.divide(math.fsum(np.multiply(flux,trans).multiply(extinction).multiply(_lambda)),math.fsum(trans.multiply(_lambda) * extinction[1]).multiply(const.c.value/(np.square(_lambda)))))
-			mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * extinction *_lambda) / math.fsum(trans * _lambda * extinction * (const.c.value/np.square(_lambda))))
+			mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * _extinction *_lambda) / math.fsum(trans * _lambda * _extinction * (const.c.value/np.square(_lambda))))
 		else:
 			print('Invalid mag_sys_opt!')
 
@@ -235,6 +262,7 @@ class simulate:
 		sky_y = convolve_fft(sky_y,degrade)
 		self.sky_flux = spectres(self.wavelength,sky_x,sky_y)
 
+
 	def recalculate_dichroic(self,caller):
 		if (self.channel is 'blue') or (self.channel is 'both'):
 			fblue_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y1, kind='cubic')
@@ -243,9 +271,35 @@ class simulate:
 			fred_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y2, kind='cubic')
 			self.red_dichro = fred_dichro(self.wavelength)
 
+
 	def recalculate_grating(self,caller):
 		if (self.channel is 'blue') or (self.channel is 'both'):
 			self.blue_grating = spectres(self.wavelength,(dh.grating1[0]*10),dh.grating1[1])
 		if (self.channel is 'red') or (self.channel is 'both'):
 			self.red_grating = spectres(self.wavelength,(dh.grating2[0]*10),dh.grating2[1])
 
+
+	def recalculate_ccd(self,caller):
+		if (channel is 'blue') or (channel is 'both'):
+			fblue_ccd = interpolate.interp1d((dh.ccd1[0]*10),dh.ccd1[1], kind='cubic')
+			self.blue_ccd = fblue_ccd(self.wavelength)
+		if (channel is 'red') or (channel is 'both'):
+			fred_ccd = interpolate.interp1d((dh.ccd2[0]*10),dh.ccd2[1], kind='cubic')
+			self.red_ccd = fred_ccd(wavelength)
+
+	def recalculate_readnoise(self,caller):
+		spectral_resolution = math.ceil((self.slit_size/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer
+		spatial_resolution = math.ceil((self.seeing/(0.7/12))/2)*2 #px (ceil()/2)*2 to round up to next even integer 
+		extent = seeing * slit_size
+		npix = extent/(0.7/12)**2
+		
+		rn = edl.rn_default
+		if (self.bin_size > 0) and (self.bin_size < 5):
+			print('[ info ] : Pixel binning: ({}x{})'.format(self.bin_size,self.bin_size))
+			readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (self.bin_size**2))
+			print('[ info ] : Extent: {} arcsec^2\n[ info ] : num pixels/resel: {} px\n[ info ] : spectral resolution: {} px\n[ info ] : spatial resolution: {} px'.format(extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
+		else:
+			raise ValueError('{} Invalid pixel binning option ({})'.format(string_prefix,self.bin_size))
+
+	def recalculate_atmospheric_extinction(self,caller):
+		self.extinction = spectres(self.wavelength,dh.atmo_ext_x,dh.atmo_ext_y)
