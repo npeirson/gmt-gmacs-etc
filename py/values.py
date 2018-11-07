@@ -63,12 +63,14 @@ atmo_ext_x,atmo_ext_y = atmo_ext_x,atmo_ext_y
 mirror_file_x,mirror_file_y = mirror_file[0]*10,mirror_file[1]
 
 ''' keychain '''
+# argument keys (probably not right, yet)
 keys = ['obj','atmo_ext','wavelength',
 		'filter_opt','magnitude','mag_sys_opt',
 		'grating_opt','redshift','exposure_time',
 		'seeing','slit_size','moon_days','plot_channel',
 		'telescope_mode','binx','sss']
 
+# passage keys, wavelength assumed
 stellar_keys = [filename[:-4] for filename in stellar_files]
 galactic_keys = edl.galaxy_files
 filter_keys = [filename[:-4] for filename in filter_files]
@@ -76,7 +78,6 @@ grating_opt_keys = ['low',0,1.4,'high',1,3.73]
 moon_days_keys = [0,3,7,10,14]
 telescope_mode_keys = [0,4,'first','first light',1,7,'full','full size']
 
-# passage keys, wavelength assumed
 power_keys = ['flux','area','exposure_time']
 percent_keys = ['seeing']
 total_eff_keys = ['grating','dichro','ccd','atmo_ext']
@@ -86,8 +87,9 @@ dichroic_keys = []
 grating_keys = ['grating_opt']
 ccd_keys = []
 atmo_ext_keys = []
-counts_noise_keys = ['extension']
+counts_noise_keys = ['sky_flux','extension']
 
+flux_keys = np.unique(np.concatenate(['grating_opt','filter'],grating_opt_keys,filter_keys))
 counts_keys = np.unique(np.concatenate(['power'],power_keys))
 signal_keys = np.unique(np.concatenate(['counts','percent','total_eff'],total_eff_keys,counts_keys,percent_keys))
 noise_keys = np.unique(np.concatenate(['counts_noise','total_eff_noise'],counts_noise_keys,total_eff_noise_keys))

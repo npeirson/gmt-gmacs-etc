@@ -11,7 +11,7 @@ from astropy import constants as const
 from astropy.convolution import convolve, convolve_fft
 from astropy.stats import gaussian_sigma_to_fwhm
 
-
+# handles various input forms
 def type_router(_obj):
 	try:
 		if isinstance(_obj,str):
@@ -22,6 +22,7 @@ def type_router(_obj):
 			raise ValueError("{} Invalid value: {}".format(string_prefix,_obj))
 	except:
 		raise TypeError("{} Invalid type: {}".format(string_prefix,type(_obj)))
+
 
 class simulate:
 	string_prefix = '[ etc ] :'
@@ -41,7 +42,7 @@ class simulate:
 
 	''' tier 0 '''
 
-	def refresh(self,caller=cb_obj.name,tabs=tabs): # default cb_obj as immutable
+	def refresh(self,caller=cb_obj.name,tabs=tabs):
 		# direct the changed values
 		if (tabs.active in [_opt for _opt in range(3)]):
 			if caller in edl.signal_components:
@@ -57,7 +58,7 @@ class simulate:
 		
 			if (tabs.active == 0): # snr
 				self.recalculate_snr(caller)
-				plot_y1 = self.snr_blue
+				plot_y1 = seflf.snr_blue
 				plot_y2 = self.snr_red
 			elif (tabs.active == 1): # obs spec no noise
 				if self.noise:
@@ -110,14 +111,16 @@ class simulate:
 	''' tier 1 '''
 
 	def recalculate_signal(self,caller):
-		if caller in edl.counts_components:
-			pass # recalc counts stuff
-		elif caller in edl.percent_components:
-			pass # recalc percent stuff
-		elif caller in edl.efficiency_components:
-			pass # recalc efficiency stuff
+		if caller in edl.signal_keys:
+			self.recalculate_signal(caller)
+		elif caller in edl.percent_keys:
+			self.recalculate_seeing(caller)
+		elif caller in edl.total_eff_keys:
+			self.recalculate_efficiency(caller)
 		else:
-			pass # recalc all stuff
+			self.recalculate_counts(caller)
+			self.recalculate_seeing(caller)
+			self.recalculate_efficiency(caller)
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.signal_blue = np.multiply((self.counts * self.percent), self.total_eff_blue)
@@ -125,10 +128,13 @@ class simulate:
 			self.signal_red = np.multiply((self.counts * self.percent), self.total_eff_red)
 
 	def recalculate_noise(self,caller):
-		if caller in edl.counts_noise_components:
-			pass # recalc counts noise stuff
-		elif caller in edl.efficiency_noise_components:
-			pass # recalc total efficiency noise stuff
+		if caller in edl.counts_noise_keys:
+			self.recalculate_counts_noise(caller)
+		elif caller in edl.total_eff_noise_keys:
+			self.recalculalte_efficiency_noise(caller)
+		else:
+			self.recalculate_counts_noise(caller)
+			self.recalculalte_efficiency_noise(caller)
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.noise_blue = np.multiply(self.counts_noise,self.total_eff_noise_blue)
@@ -139,6 +145,8 @@ class simulate:
 	''' tier 2 '''
 
 	def recalculate_counts(self,caller):
+		self.recalculate_flux(caller)
+
 		self.power = self.flux_y * self.area * self.exposure_time * self.plot_step
 		self.counts = np.divide(np.divide(self.power,np.divide((const.h.value * const.c.value),self.wavelength)),1e10)
 
@@ -151,10 +159,24 @@ class simulate:
 
 	def recalculate_percent(self,caller):
 		self.recalculate_seeing(caller)
-		# this is a forwarding function to help me keep my head-thoughts straight
+		# this is a forwarding function
 
 
 	def recalculate_efficiency(self,caller):
+		if caller in edl.grating_keys:
+			self.recalculate_grating(caller)
+		if caller in edl.dichroic_keys:
+			self.recalculate_dichroic(caller)
+		if caller in edl.ccd_keys:
+			self.recalculate_ccd(caller)
+		if caller in edl.atmo_ext_keys:
+			self.recalculate_atmospheric_extinction(caller)
+		else:
+			self.recalculate_grating(caller)
+			self.recalculate_dichroic(caller)
+			self.recalculate_ccd(caller)
+			self.recalculate_atmospheric_extinction(caller)
+
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.total_eff_blue = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),np.multiply((self.ccd_blue * (edl.coating_eff_blue * self.extinction)),np.square(mirror)))
 		if (self.channel == 'red') or (self.channel == 'both'):
@@ -162,6 +184,8 @@ class simulate:
 
 
 	def recalculalte_efficiency_noise(self,caller):
+		self.recalculalte_efficiency_noise(caller)
+
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.total_eff_noise_red = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),(self.ccd_blue * np.square(self.mirror) * edl.coating_eff_blue))
 		if (self.channel == 'red') or (self.channel == 'both'):
@@ -169,9 +193,20 @@ class simulate:
 
 
 	def recalculate_flux(self,caller):
+		if caller in edl.grating_opt_keys:
+			self.change_grating_opt()
+		if caller in edl.filter_keys:
+			self.change_filter()
+		if caller in edl.mag_sys_keys():
+			change_mag_sys_opt()
+		else:
+			self.change_grating_opt()
+			self.change_filter()
+			change_mag_sys_opt()
+
 		# heal identicalities
-		self.lambda_A[0] = lambda_A[0] + plot_step
-		self.lambda_A[-1] = lambda_A[-1] - plot_step
+		self.lambda_A[0] = lambda_A[0] + self.plot_step
+		self.lambda_A[-1] = lambda_A[-1] - self.plot_step
 
 		ftrans = interpolate.interp1d(selected_filter[0],selected_filter[1], kind='cubic')
 		trans = ftrans(self.lambda_A)
@@ -181,6 +216,7 @@ class simulate:
 		flux = self.flux_A * 1e10
 		_lambda = self.lambda_A / 1e10
 
+		# valaidate flux
 		num_zeros = 0
 		for lux in flux:
 			if (lux is None) or (lux is 0):
@@ -195,18 +231,10 @@ class simulate:
 				percent_zeros = (num_zeros / flux.shape[0]) * 100
 				print('{}% of this bandpass has zero flux'.format(percent_zeros))
 
-		if (mag_sys_opt == 'vega'):
-			flux_vega = spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
-			mag_model = -2.5 * np.log10(np.divide(math.fsum(flux * _extinction * _lambda * trans),math.fsum(flux_vega * trans * _lambda * _extinction))) + 0.03
-		elif (mag_sys_opt == 'ab'):
-			mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * _extinction *_lambda) / math.fsum(trans * _lambda * _extinction * (const.c.value/np.square(_lambda))))
-		else:
-			print('Invalid mag_sys_opt!')
-
-		del_mag = mag - mag_model
-		output_flux = np.multiply(object_y,10 ** np.negative(del_mag/2.5))
+		del_mag = self.mag - self.mag_model
+		output_flux = np.multiply(self.object_y,10 ** np.negative(del_mag/2.5))
 		old_res = self.object_x[2] - self.object_x[1]
-		if (old_res < plot_step):
+		if (old_res < self.plot_step):
 			self.flux_y = spectres(self.wavelength,self.object_x,(output_flux*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
 		else:
 			self.flux_y = spectres(self.wavelength,self.object_x,(output_flux*1e-03))
@@ -221,6 +249,15 @@ class simulate:
 			self.delta_lambda = edl.dld[1] * self.slit_size / 0.7
 		else:
 			raise ValueError("{} Invalid grating_opt: {}".format(string_prefix,self.grating_opt))
+
+	def change_mag_sys_opt(self,caller):
+		if (self.mag_sys_opt == 'vega'):
+			flux_vega = spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
+			self.mag_model = -2.5 * np.log10(np.divide(math.fsum(flux * _extinction * _lambda * trans),math.fsum(flux_vega * trans * _lambda * _extinction))) + 0.03
+		elif (self.mag_sys_opt == 'ab'):
+			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * _extinction *_lambda) / math.fsum(trans * _lambda * _extinction * (const.c.value/np.square(_lambda))))
+		else:
+			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(string_prefix,self.mag_sys_opt))
 
 
 	def change_object_type(self,caller):
