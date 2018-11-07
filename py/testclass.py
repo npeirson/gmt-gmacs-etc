@@ -44,11 +44,11 @@ def type_router(_obj,_keys):
 '''
 
 
-class simulate:
+class simulate(cb_obj,tabs):
 
 	def __init__(self,telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
 		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
-		noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True):
+		noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True,**kwargs):
 		
 		# required args, maybe add range limit too
 		self.object_type = type_router(object_type,edl.object_type_keys)
@@ -62,7 +62,7 @@ class simulate:
 			self.grating_opt = 0
 
 		self.telescope_mode = type_router(telescope_mode,edl.telescope_mode_keys)
-		if (telescope_mode >= 3):
+		if (self.telescope_mode >= 3):
 			edl.telescope_mode = 1
 		else:
 			edl.telescope_mode = 0
@@ -75,10 +75,10 @@ class simulate:
 		self.moon_days = num_router(moon_days)
 		if isinstance(wavelength,np.ndarray):
 			self.wavelength = wavelength			
-			if (self.wavelength >= dfs.default_limits_wavelength[0]) and (self.wavelength <= dfs.default_limits_wavelength[1]):
+			if (self.wavelength[0] >= dfs.default_limits_wavelength[0]) and (self.wavelength[-1] <= dfs.default_limits_wavelength[1]):
 				self.plot_step = self.wavelength[2] - self.wavelength[1]
 			else:
-				raise ValueError('{} Invalid wavelength extrema: {}'.format(edl.string_prefix,self.wavelength))
+				raise ValueError('{} Invalid wavelength extrema ({}--{}). Must be within {}--{}'.format(edl.string_prefix,wavelength[0],wavelength[-1],dfs.default_limits_wavelength[0],dfs.default_limits_wavelength[1]))
 		else:
 			raise TypeError("{} Invalid wavelength type: {} (must be array-like)".format(edl.string_prefix,type(wavelength)))
 		self.__dict__ = dict(kwargs) # pick up any optionals
@@ -88,7 +88,7 @@ class simulate:
 
 	''' tier 0 '''
 
-	def change(self,caller,tabs): # caller=cb_obj.name,tabs=tabs
+	def change(self): # caller=cb_obj.name,tabs=tabs
 		# direct the changed values
 		if (tabs.active in [_opt for _opt in range(3)]):
 			if caller in edl.signal_keys:
@@ -508,7 +508,7 @@ class simulate:
 
 
 	def change_plot_step(self,caller):
-		if (self.wavelength >= dfs.default_limits_wavelength[0]) and (self.wavelength <= dfs.default_limits_wavelength[1]):
+		if (self.wavelength[0] >= dfs.default_limits_wavelength[0]) and (self.wavelength[-1] <= dfs.default_limits_wavelength[1]):
 			self.plot_step = self.wavelength[2] - self.wavelength[1]
 		else: # technically shouldn't happen...
-			raise ValueError('{} Invalid wavelength extrema: {}'.format(edl.string_prefix,self.wavelength))
+			raise ValueError('{} Invalid wavelength extrema ({}--{}). Must be within {}--{}'.format(edl.string_prefix,wavelength[0],wavelength[-1],dfs.default_limits_wavelength[0],dfs.default_limits_wavelength[1]))
