@@ -1,10 +1,16 @@
 # this uses a caller singleton and enumerated caller-association groups to update only necessary data.
 # the else statement catches errors and changes from wavelength or channel
 
-
+import math
 import numpy as np
 import values as edl
-# coating efficiencies moved into values file, edl.coating_eff_red
+import datahandler as dh
+from spectres import spectres
+from scipy import interpolate, integrate
+from astropy import constants as const
+from astropy.convolution import convolve, convolve_fft
+from astropy.stats import gaussian_sigma_to_fwhm
+
 
 def type_router(_obj):
 	try:
@@ -30,13 +36,14 @@ class simulate:
 		grating_opt = type_router(grating_opt)
 		telescope_mode = type_router(telescope_mode)		
 		self.plot_step = wavelength[2] - wavelength[1]
+		# run init
 
 
 	''' tier 0 '''
 
 	def refresh(self,caller,tabs=tabs): # default cb_obj as immutable
 		# direct the changed values
-		if (tabs.active in range(2)):
+		if (tabs.active in [_opt for _opt in range(3)]):
 			if caller in edl.signal_components:
 				self.recalculate_signal(caller)
 			if caller in edl.noise_components:
@@ -132,8 +139,7 @@ class simulate:
 	''' tier 2 '''
 
 	def recalculate_counts(self,caller):
-		flux = self.flux_y
-		self.power = flux * self.area * self.exposure_time * self.plot_step
+		self.power = self.flux_y * self.area * self.exposure_time * self.plot_step
 		self.counts = np.divide(np.divide(self.power,np.divide((const.h.value * const.c.value),self.wavelength)),1e10)
 
 
