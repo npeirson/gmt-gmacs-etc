@@ -414,19 +414,16 @@ class simulate:
 			self.change_grating_opt(caller)
 		if caller in edl.filter_keys:
 			self.change_filter(caller)
-		if caller in edl.mag_sys_opt_keys:
-			self.change_mag_sys_opt(caller)
 		else: # callers prolly not necessary but good formality
 			self.recalculate_atmospheric_extinction(caller)
 			self.change_grating_opt(caller)
 			self.change_filter(caller)
-			self.change_mag_sys_opt(caller)
 			self.change_moon_days(caller)
 			self.change_plot_step(caller)
 
 		# heal identicalities
-		self.lambda_A[0] = lambda_A[0] + self.plot_step
-		self.lambda_A[-1] = lambda_A[-1] - self.plot_step
+		self.lambda_A[0] = self.lambda_A[0] + self.plot_step
+		self.lambda_A[-1] = self.lambda_A[-1] - self.plot_step
 
 		ftrans = interpolate.interp1d(selected_filter[0],selected_filter[1], kind='cubic')
 		self.trans = ftrans(self.lambda_A)
@@ -478,6 +475,10 @@ class simulate:
 
 
 	def change_mag_sys_opt(self,caller):
+		if caller in edl.mag_sys_opt_keys:
+			self.recalculate_flux(caller)
+		else:
+			self.recalculate_flux(caller)
 		print('_lambda: {}\ntrans: {}\n_extinction: {}\nflux: {}'.format(type(self._lambda),type(self.trans),type(self._extinction),type(self.flux)))
 		if (self.mag_sys_opt == 'vega'):
 			flux_vega = self.spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
@@ -572,6 +573,7 @@ class simulate:
 		old_res = sky_x[2] - sky_x[1]
 		_sigma = self.delta_lambda / gaussian_sigma_to_fwhm
 		_x = np.arange((-5*_sigma),(5*_sigma),old_res)
+		funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.multiply(np.square(_sigma),2))))
 		degrade = funx(_x)/np.trapz(funx(_x))
 		sky_y = convolve_fft(sky_y,degrade)
 		self.sky_flux = self.spectres(self.wavelength,sky_x,sky_y)
