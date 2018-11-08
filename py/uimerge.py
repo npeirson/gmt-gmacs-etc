@@ -108,10 +108,14 @@ gly_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color
 p0.add_glyph(cds_blue,gly_blue)
 p0.add_glyph(cds_red,gly_red)
 
-initial_values = dict(gly_blue=gly_blue,gly_red=gly_red,cds_blue=cds_blue,cds_red=cds_red,
-	telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
-	filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,
-	grating_opt=0,noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True)
+bokeh_inserts = dict(gly_blue=gly_blue,gly_red=gly_red,cds_blue=cds_blue,cds_red=cds_red,tabs=tabs,
+	widget_object_types=widget_object_types,widget_galaxy_type=widget_galaxy_type,widget_types_types=widget_types_types,
+	widget_mag_type=widget_mag_type,widget_seeing=widget_seeing,widget_grating_types=widget_grating_types,widget_slit_width=widget_slit_width,
+				widget_wavelengths=widget_wavelengths)
+
+initial_values = dict(telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
+	filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
+	noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=False)
 
 
 ''' callback management '''
@@ -127,10 +131,17 @@ class simulate:
 
 
 	"""
-	
-	def __init__(self,initial_values=initial_values,**kwargs):
+	def __init__(self,bokeh_inserts=bokeh_inserts,initial_values=initial_values,**kwargs):
 		# singletons
-		self.flux,self.counts,self.counts_noise,self.signal,self.noise,self.error,self.trans = [],[],[],[],[],[],[]
+		self.flux = np.ndarray([])
+		self.counts = np.ndarray([])
+		self.counts_noise = np.ndarray([])
+		self.signal = np.ndarray([])
+		self.noise = np.ndarray([])
+		self.error = np.ndarray([])
+		self.trans = np.ndarray([])
+		self._extinction = np.ndarray([])
+		#self._lambda = np.ndarray([]) # shouldn't need this. indicates problem in trickle-down system. Probably mag_sys_opt not in right keychain
 		
 		# required args, maybe add range limit too
 		self.object_type = self.type_router(initial_values['object_type'],edl.object_type_keys)
@@ -467,11 +478,13 @@ class simulate:
 
 
 	def change_mag_sys_opt(self,caller):
+		print('_lambda: {}\ntrans: {}\n_extinction: {}\nflux: {}'.format(type(self._lambda),type(self.trans),type(self._extinction),type(self.flux)))
 		if (self.mag_sys_opt == 'vega'):
 			flux_vega = self.spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
 			self.mag_model = -2.5 * np.log10(np.divide(math.fsum(self.flux * self._extinction * self._lambda * self.trans),math.fsum(flux_vega * self.trans * self._lambda * self._extinction))) + 0.03
 		elif (self.mag_sys_opt == 'ab'):
-			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(self.flux * self.trans * self._extinction * self._lambda) / math.fsum(self.trans * self._lambda * self._extinction * (const.c.value/np.square(self._lambda))))
+			sq = np.square(self._lambda,where=[0,1])
+			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(self.flux * self.trans * self._extinction * self._lambda) / math.fsum(self.trans * self._lambda * self._extinction * (const.c.value/sq)))
 		else:
 			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(edl.string_prefix,self.mag_sys_opt))
 		if not self.sss:
@@ -539,7 +552,7 @@ class simulate:
 		self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
 		if not self.sss:
 			_active = edl.filter_files[self.filter_index]
-			print("{} Filter changed to {} ({}--{} nm)".format(edl.string_prefix,_active,selected_filter[0],selected_filter[-1]))
+			print("{} Filter changed to {} ({}--{} nm)".format(edl.string_prefix,_active,selected_filter[0][0],selected_filter[0][-1]))
 
 
 	def recalculate_seeing(self,caller):
@@ -716,11 +729,6 @@ class simulate:
 # end of class `simulate`
 
 
-
-general_callback = CustomJS.from_py_func(simulate(initial_values))
-
-
-
 def plot_types_callback(gly_red=gly_red,gly_blue=gly_blue,tabs=tabs):
 	# red glyphs on
 	if (0 in cb_obj.active):
@@ -739,9 +747,10 @@ def plot_types_callback(gly_red=gly_red,gly_blue=gly_blue,tabs=tabs):
 
 
 ''' callback ligatures '''
-widget_plot_types.js_on_change('start',CustomJS.from_py_func(plot_types_callback))
+widget_plot_types.js_on_change('value',CustomJS.from_py_func(plot_types_callback))
 
-
+general_callback = CustomJS.from_py_func(simulate().change())
+widget_seeing.js_on_change('value',general_callback)
 
 
 ''' final ui panel building '''
