@@ -113,7 +113,7 @@ bokeh_inserts = dict(gly_blue=gly_blue,gly_red=gly_red,cds_blue=cds_blue,cds_red
 	widget_mag_type=widget_mag_type,widget_seeing=widget_seeing,widget_grating_types=widget_grating_types,widget_slit_width=widget_slit_width,
 				widget_wavelengths=widget_wavelengths)
 
-initial_values = dict(telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
+initial_values = dict(telescope_mode=0,wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
 	filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
 	noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=False)
 
@@ -148,6 +148,29 @@ class simulate:
 		except:
 			self.sss = True
 
+		try:
+			if isinstance(initial_values['channel'],str):
+				if initial_values['channel'] in edl.channel_keys:
+					self.channel = initial_values['channel']
+				else:
+					self.channel = 'both'
+			else:
+				raise ValueError("{} Invalid initial channel option: {}".format(edl.string_prefix,initial_values['channel']))
+		except:
+			print('uh oh...')
+			self.channel = 'both' # improve this
+
+		self.bin_size = 2 # this too
+
+
+		try:
+			if isinstance(initial_values['exposure_time'],int) or isinstance(initial_values['exposure_time'],float):
+				self.exposure_time = initial_values['exposure_time']
+			else:
+				raise ValueError('{} Invalid exposure time: {}'.format(edl.string_prefix,self.exposure_time))
+		except: # fix these error messages, they're not really... right... technically.
+			raise TypeError('{} Invalid exposure time {}'.format(edl.string_prefix,initial_values['exposure_time']))
+
 		self.object_type = initial_values['object_type']
 
 		self.grating_opt = self.type_router(initial_values['grating_opt'],edl.grating_opt_keys)
@@ -158,9 +181,9 @@ class simulate:
 
 		self.telescope_mode = self.type_router(initial_values['telescope_mode'],edl.telescope_mode_keys)
 		if (self.telescope_mode >= 3):
-			edl.telescope_mode = 1
+			edl.telescope_mode = 'full'
 		else:
-			edl.telescope_mode = 0
+			edl.telescope_mode = 'first'
 
 		try:
 			if isinstance(initial_values['mag_sys_opt'],str):
@@ -251,6 +274,21 @@ class simulate:
 			else:
 				raise ValueError("{} Invalid active tab: {}".format(edl.string_prefix,tabs.active))
 
+			if (cb_obj.name == 'channel'): # change to actual instance's name attribute, not string
+				if 0 in cb_obj.active:
+					red_active = True
+				if 1 in cb_obj.active:
+					blue_active = True
+				else:
+					red_active = True
+					blue_active = True
+			if red_active and blue_active:
+				self.channel = 'both'
+			elif blue_active and not red_active:
+				self.channel = 'blue'
+			elif red_active and not blue_active:
+				self.channel = 'red'
+
 		return plot_y1,plot_y2
 
 
@@ -279,12 +317,15 @@ class simulate:
 			self.recalculate_noise(caller)
 		if caller in edl.readnoise_keys:
 			self.recalculate_readnoise(caller)
+		if caller in edl.snr_keys:
+			self.recalculate_snr(caller)
 		else:
 			self.recalculate_signal(caller)
 			self.recalculate_noise(caller)
 			self.recalculate_readnoise(caller)
+			self.recalculate_snr(caller)
 
-		if (self.self.channel == 'blue') or (self.channel == 'both'):
+		if (self.channel == 'blue') or (self.channel == 'both'):
 			sigma_blue = np.sqrt(self.signal_blue + self.noise_blue + np.square(self.readnoise))
 			self.error_blue = np.random.normal(loc=0, scale=sigma_blue,size=len(self.snr_blue))
 		if (self.channel == 'red') or (self.channel == 'both'):
@@ -314,15 +355,13 @@ class simulate:
 	def recalculate_noise(self,caller):
 		if caller in edl.counts_noise_keys:
 			self.recalculate_counts_noise(caller)
-		elif caller in edl.total_eff_noise_keys:
-			self.recalculalte_efficiency_noise(caller)
 		else:
 			self.recalculate_counts_noise(caller)
 			self.recalculalte_efficiency_noise(caller)
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.noise_blue = np.multiply(self.counts_noise,self.total_eff_noise_blue)
-		if (channel == 'red') or (self.channel == 'both'):
+		if (self.channel == 'red') or (self.channel == 'both'):
 			self.noise_red = np.multiply(self.counts_noise,self.total_eff_noise_red)
 
 
@@ -347,10 +386,10 @@ class simulate:
 		if (caller == 'telescope_mode'):
 			self.change_telescope_mode(caller)
 		if caller in edl.extension_keys:
-			self.recalculate_extension(caller)
+			self.recalculate_seeing(caller)
 		else:
 			self.recalculate_sky_flux(caller)
-			self.recalculate_extension(caller)
+			self.recalculate_seeing(caller)
 			self.change_telescope_mode(caller)
 			self.change_plot_step(caller)
 
@@ -365,12 +404,6 @@ class simulate:
 	def recalculate_efficiency(self,caller):
 		if caller in edl.grating_keys:
 			self.recalculate_grating(caller)
-		if caller in edl.dichroic_keys:
-			self.recalculate_dichroic(caller)
-		if caller in edl.ccd_keys:
-			self.recalculate_ccd(caller)
-		if caller in edl.mirror_keys:
-			self.recalculate_mirror(caller)
 		else:
 			self.recalculate_atmospheric_extinction(caller)
 			self.recalculate_grating(caller)
@@ -380,20 +413,14 @@ class simulate:
 			self.recalculate_mirror(caller)
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
-			self.total_eff_blue = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),np.multiply((self.ccd_blue * (edl.coating_eff_blue * self.extinction)),np.square(mirror)))
+			self.total_eff_blue = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),np.multiply((self.ccd_blue * (edl.coating_eff_blue * self.extinction)),np.square(self.mirror)))
 		if (self.channel == 'red') or (self.channel == 'both'):
-			self.total_eff_red = np.multiply(np.multiply(self.dichro_red,self.grating_red),np.multiply((self.ccd_red * (edl.coating_eff_red * self.extinction)),np.square(mirror)))
+			self.total_eff_red = np.multiply(np.multiply(self.dichro_red,self.grating_red),np.multiply((self.ccd_red * (edl.coating_eff_red * self.extinction)),np.square(self.mirror)))
 
 
 	def recalculalte_efficiency_noise(self,caller):
-		if caller in edl.dichroic_keys:
-			self.recalculate_dichroic(caller)
 		if caller in edl.grating_keys:
 			self.recalculate_grating(caller)
-		if caller in edl.ccd_keys:
-			self.recalculate_ccd(caller)
-		if caller in edl.mirror_keys:
-			self.recalculate_mirror(caller)
 		else:
 			self.recalculate_dichroic(caller)
 			self.recalculate_grating(caller)
@@ -479,7 +506,7 @@ class simulate:
 	def change_mag_sys_opt(self,caller):
 		try:
 			if isinstance(self.old_mso,str):		
-				print('_lambda: {}\ntrans: {}\n_extinction: {}\nflux: {}'.format(type(self._lambda),type(self.trans),type(self._extinction),type(self.flux)))
+				#print('_lambda: {}\ntrans: {}\n_extinction: {}\nflux: {}'.format(type(self._lambda),type(self.trans),type(self._extinction),type(self.flux))) # for debugging
 				if (self.mag_sys_opt == 'vega'):
 					flux_vega = self.spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
 					self.mag_model = -2.5 * np.log10(np.divide(math.fsum(self.flux * self._extinction * self._lambda * self.trans),math.fsum(flux_vega * self.trans * self._lambda * self._extinction))) + 0.03
@@ -613,7 +640,7 @@ class simulate:
 	def recalculate_readnoise(self,caller): # probably not implemented in all necessary places yet...
 		spectral_resolution = math.ceil((self.slit_size/(0.7/12))/2)*2 # px (ceil()/2)*2 to round up to next even integer
 		spatial_resolution = math.ceil((self.seeing/(0.7/12))/2)*2 # probably have to find another method, because pscript is depriciating :(
-		extent = seeing * slit_size
+		extent = self.seeing * self.slit_size
 		npix = extent/(0.7/12)**2
 		
 		rn = edl.rn_default

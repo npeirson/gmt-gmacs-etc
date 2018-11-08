@@ -63,6 +63,7 @@ grating_opt_keys = ['low',0,1.4,'high',1,3.73]
 moon_days_keys = [0,3,7,10,14]
 telescope_mode_keys = [0,4,'first','first light',1,7,'full','full size']
 
+channel_keys = ['blue','red','both']
 mag_sys_opt_keys = ['flux'] # encompasses much more than just flux, though
 power_keys = ['flux','area','exposure_time']
 percent_keys = ['seeing']
