@@ -103,74 +103,10 @@ tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7],name='tabs') # string
 
 cds_blue = ColumnDataSource(dict(xb=[],yb=[]))
 cds_red = ColumnDataSource(dict(xr=[],yr=[]))
-gly_blue = glyphs.Line(x="xb",y="yb",line_color='blue')
-gly_red = glyphs.Line(x="xr",y="yr",line_color='red')
+gly_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color='blue')
+gly_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color='red')
 p0.add_glyph(cds_blue,gly_blue)
 p0.add_glyph(cds_red,gly_red)
-
-# snr
-cds_snr_red = ColumnDataSource(dict(xr=[],yr=[]))
-cds_snr_blue = ColumnDataSource(dict(xb=[],yb=[]))
-gly_snr_red = glyphs.Line(x="xr",y="yr",line_color='red')
-gly_snr_blue = glyphs.Line(x="xb",y="yb",line_color='blue')
-p0.add_glyph(cds_snr_red,gly_snr_red)
-p0.add_glyph(cds_snr_blue,gly_snr_blue)
-
-# obs spec noise TODO put these on one plot and replace p3 ith manifold
-cds_os_noise_red = ColumnDataSource(dict(xr=[],yr=[]))
-cds_os_noise_blue = ColumnDataSource(dict(xb=[],yb=[]))
-gly_os_noise_red = glyphs.Line(x="xr",y="yr")
-gly_os_noise_blue = glyphs.Line(x="xb",y="yb")
-p1.add_glyph(cds_os_noise_red,gly_os_noise_red)
-p1.add_glyph(cds_os_noise_blue,gly_os_noise_blue)
-
-# obs spec no noise
-cds_os_nonoise_red = ColumnDataSource(dict(xr=[],yr=[]))
-cds_os_nonoise_blue = ColumnDataSource(dict(xb=[],yb=[]))
-gly_os_nonoise_red = glyphs.Line(x="xr",y="yr")
-gly_os_nonoise_blue = glyphs.Line(x="xb",y="yb")
-p2.add_glyph(cds_os_nonoise_red,gly_os_nonoise_red)
-p2.add_glyph(cds_os_nonoise_blue,gly_os_nonoise_blue)
-
-cds_sky_red = ColumnDataSource(dict(xr=[],yr=[]))
-cds_sky_blue = ColumnDataSource(dict(xb=[],yb=[]))
-gly_sky_red = glyphs.Line(x="xr",y="yr")
-gly_sky_blue = glyphs.Line(x="xb",y="yb")
-p3.add_glyph(cds_sky_red,gly_sky_red)
-p3.add_glyph(cds_sky_blue,gly_sky_blue)
-
-# dichroic throughput
-cds_dichroic_red = ColumnDataSource(dict(xr=[],yr=[]))
-cds_dichroic_blue = ColumnDataSource(dict(xb=[],yb=[]))
-gly_dichroic_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
-gly_dichroic_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
-p4.add_glyph(cds_dichroic_red,gly_dichroic_red)
-p4.add_glyph(cds_dichroic_blue,gly_dichroic_blue)
-
-# grating throughput
-cds_grating_red = ColumnDataSource(dict(xr=[],yr=[]))
-cds_grating_blue = ColumnDataSource(dict(xb=[],yb=[]))
-gly_grating_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
-gly_grating_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
-p5.add_glyph(cds_grating_red,gly_grating_red)
-p5.add_glyph(cds_grating_blue,gly_grating_blue)
-
-# ccd efficiency
-cds_ccd_red = ColumnDataSource(dict(xr=[],yr=[]))
-cds_ccd_blue = ColumnDataSource(dict(xb=[],yb=[]))
-gly_ccd_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
-gly_ccd_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
-p6.add_glyph(cds_ccd_red,gly_ccd_red)
-p6.add_glyph(cds_ccd_blue,gly_ccd_blue)
-
-# atmospheric extinction
-cds_atmo_ext = ColumnDataSource(dict(x=[], y=[]))
-gly_atmo_ext = glyphs.Line(x="x",y="y",line_width=dfs.default_line_width,line_color=dfs.default_line_color_else)
-p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
-
-# other sources for computation pipeline
-cds_signal = ColumnDataSource(dict(signal=[]))
-cds_noise = ColumnDataSource(dict(noise=[]))
 
 initial_values = dict(gly_blue=gly_blue,gly_red=gly_red,cds_blue=cds_blue,cds_red=cds_red,
 	telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
@@ -187,6 +123,7 @@ class simulate:
 
 	Parameters
 	----------
+		todo
 
 
 	"""

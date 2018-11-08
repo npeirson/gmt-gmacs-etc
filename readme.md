@@ -1,6 +1,11 @@
 # GMACS ETC
 
-Since mimic seems to work, I'm going to go work on moving its code into the python class, and make the state machine to direct resampling.
+py/uimerge.py is the focus right now. It looks I'm messing something up in the initialization process, it seems much more complicated than it should be, which means I'm probably past-due for a kip. I'll pick up again in the morning, and you're welcome to take a crack at it, if you'd like.  
+
+TODO:  
+	- callback ligatures (e.g. `js_on_change('start',general_callback)`)
+	- fix initialization stuff (probably easier than sleep-dep me finds it)
+	- columnDataSource routing (I think this is done, not sure though...)
 
 
 ```
