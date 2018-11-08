@@ -14,10 +14,10 @@ from astropy.stats import gaussian_sigma_to_fwhm
 galaxyfiles = [[dh.sb1_x,dh.sb1_y],[dh.sb2_x,dh.sb2_y],[dh.sb3_x,dh.sb3_y],[dh.sb4_x,dh.sb4_y],[dh.sb5_x,dh.sb5_y],
 				[dh.sb6_x,dh.sb6_y],[dh.s0_x,dh.s0_y],[dh.sa_x,dh.sa_y],[dh.sb_x,dh.sb_y],[dh.sc_x,dh.sc_y],
 				[dh.bulge_x,dh.bulge_y],[dh.ellipticals_x,dh.ellipticals_y],[dh.lbg_all_flam_x,dh.lbg_all_flam_y]]
-starfiles = [[dh.star_o5v_x,dh.star_o5v_y],[dh.star_b0v_x,dh.star_b0v_y],[dh.star_b57v_x,dh.star_b57v_y],
-			[dh.star_a0v_x,dh.star_a0v_y],[dh.star_a5v_x,dh.star_a5v_y],[dh.star_f0v_x,dh.star_f0v_y],
-			[dh.star_g0v_x,dh.star_g0v_y],[dh.star_g5v_x,dh.star_g5v_y],[dh.star_k0v_x,dh.star_k5v_y],
-			[dh.star_m0v_x,dh.star_m0v_y],[dh.star_m5v_x,dh.star_m5v_y]]
+starfiles = [[dh.o5v_x,dh.o5v_y],[dh.b0v_x,dh.b0v_y],[dh.b57v_x,dh.b57v_y],
+			[dh.a0v_x,dh.a0v_y],[dh.a5v_x,dh.a5v_y],[dh.f0v_x,dh.f0v_y],
+			[dh.g0v_x,dh.g0v_y],[dh.g5v_x,dh.g5v_y],[dh.k0v_x,dh.k5v_y],
+			[dh.m0v_x,dh.m0v_y],[dh.m5v_x,dh.m5v_y]]
 filterfiles = [[dh.filter_photonux_x,dh.filter_photonux_y],[dh.filter_photonb_x,dh.filter_photonb_y],
 				[dh.filter_photonv_x,dh.filter_photonv_y],[dh.filter_photonr_x,dh.filter_photonr_y],
 				[dh.filter_photoni_x,dh.filter_photoni_y],[dh.filter_u_x,dh.filter_u_y],[dh.filter_g_x,dh.filter_g_y],

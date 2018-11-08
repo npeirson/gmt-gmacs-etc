@@ -67,7 +67,7 @@ dichroic_x = _dichroic_x * 10
 atmo_ext_x,atmo_ext_y = np.loadtxt(edl.atmo_ext_path,usecols=(0,1),unpack=True,delimiter=',')
 
 mirror_file = np.fliplr(np.loadtxt(edl.mirror_file,usecols=(0,1),unpack=True,delimiter=' '))
-
+vega_file = np.loadtxt(edl.vega_file,usecols=(0,1),unpack=True,delimiter=',')
 
 ''' coalesced data '''
 

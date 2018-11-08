@@ -63,6 +63,7 @@ grating_opt_keys = ['low',0,1.4,'high',1,3.73]
 moon_days_keys = [0,3,7,10,14]
 telescope_mode_keys = [0,4,'first','first light',1,7,'full','full size']
 
+mag_sys_opt_keys = ['flux'] # encompasses much more than just flux, though
 power_keys = ['flux','area','exposure_time']
 percent_keys = ['seeing']
 total_eff_keys = ['grating','dichro','ccd','atmo_ext']
@@ -72,7 +73,7 @@ extension_keys = ['seeing','slit_size']
 
 # `np.unique` makes it safe to list key-dependencies in their entirety, for mental health
 counts_noise_keys = np.unique(np.concatenate((['moon_days','telescope_mode','exposure_time'],extension_keys)))
-flux_keys = np.unique(np.concatenate((['grating_opt','filter'],filter_keys)))
+flux_keys = np.unique(np.concatenate((['grating_opt','filter','mag_sys_opt'],filter_keys,mag_sys_opt_keys)))
 counts_keys = np.unique(np.concatenate((['telescope_mode'],power_keys)))
 signal_keys = np.unique(np.concatenate((total_eff_keys,counts_keys,percent_keys)))
 noise_keys = np.unique(np.concatenate((['moon_days'],counts_noise_keys)))
@@ -82,3 +83,13 @@ readnoise_keys = np.unique(np.concatenate((['binning'],extension_keys)))
 snr_keys = np.unique(np.concatenate((signal_keys,noise_keys,readnoise_keys)))
 obs_spec_noise_keys = np.unique(np.concatenate((signal_keys,error_keys)))
 obs_spec_nonoise_keys = signal_keys
+
+
+''' initial values '''
+initial_values = dict(gly_snr_red=gly_snr_red,gly_os_noise_red=gly_os_noise_red,gly_os_nonoise_red=gly_os_nonoise_red,
+	gly_sky_red=gly_sky_red,gly_dichroic_red=gly_dichroic_red,gly_grating_red=gly_grating_red,gly_ccd_red=gly_ccd_red,
+	gly_snr_blue=gly_snr_blue,gly_os_noise_blue=gly_os_noise_blue,gly_os_nonoise_blue=gly_os_nonoise_blue,
+	gly_sky_blue=gly_sky_blue,gly_dichroic_blue=gly_dichroic_blue,gly_grating_blue=gly_grating_blue,gly_ccd_blue=gly_ccd_blue,
+	tabs=tabs,telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
+	filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
+	noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True)

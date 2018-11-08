@@ -9,14 +9,19 @@ import defaults as dfs
 import datahandler as dh
 
 import numpy as np
-from spectres import spectres
+#from spectres import spectres # using urs
 from scipy import interpolate, integrate
 
 from astropy import constants as const
 from astropy.convolution import convolve, convolve_fft
 from astropy.stats import gaussian_sigma_to_fwhm
 
-from bokeh.models import ColumnDataSource, glyphs
+from bokeh.plotting import figure
+from bokeh.embed import autoload_static
+from bokeh.io import output_file,show,save
+from bokeh.models.callbacks import CustomJS
+from bokeh.layouts import widgetbox, column, row, layout
+from bokeh.models import ColumnDataSource, glyphs, ranges
 from bokeh.models.widgets import Dropdown, RadioButtonGroup, CheckboxButtonGroup, Slider, TextInput, RangeSlider, Paragraph, Panel, Tabs, Div
 
 ''' build user interface '''
@@ -97,8 +102,8 @@ tab7 = Panel(child=p7,title=dfs.string_calculate_types[7].title())
 tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7],name='tabs') # string_title[10]
 
 # snr
-cds_snr_red = ColumnDataSource(dict(xr=dfs.default_wavelength,yr=panda_14d[panda_14d.columns[0]]))
-cds_snr_blue = ColumnDataSource(dict(xb=dfs.default_wavelength,yb=panda_14d[panda_14d.columns[1]]))
+cds_snr_red = ColumnDataSource(dict(xr=[],yr=[]))
+cds_snr_blue = ColumnDataSource(dict(xb=[],yb=[]))
 gly_snr_red = glyphs.Line(x="xr",y="yr",line_color='red')
 gly_snr_blue = glyphs.Line(x="xb",y="yb",line_color='blue')
 p0.add_glyph(cds_snr_red,gly_snr_red)
@@ -128,31 +133,31 @@ p3.add_glyph(cds_sky_red,gly_sky_red)
 p3.add_glyph(cds_sky_blue,gly_sky_blue)
 
 # dichroic throughput
-cds_dichroic_red = ColumnDataSource(dict(xr=dichro_x,yr=dichro_y1))
-cds_dichroic_blue = ColumnDataSource(dict(xb=dichro_x,yb=dichro_y2))
+cds_dichroic_red = ColumnDataSource(dict(xr=[],yr=[]))
+cds_dichroic_blue = ColumnDataSource(dict(xb=[],yb=[]))
 gly_dichroic_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
 gly_dichroic_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
 p4.add_glyph(cds_dichroic_red,gly_dichroic_red)
 p4.add_glyph(cds_dichroic_blue,gly_dichroic_blue)
 
 # grating throughput
-cds_grating_red = ColumnDataSource(dict(xr=grating_red_1,yr=grating_red_2))
-cds_grating_blue = ColumnDataSource(dict(xb=grating_blue_1,yb=grating_blue_2))
+cds_grating_red = ColumnDataSource(dict(xr=[],yr=[]))
+cds_grating_blue = ColumnDataSource(dict(xb=[],yb=[]))
 gly_grating_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
 gly_grating_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
 p5.add_glyph(cds_grating_red,gly_grating_red)
 p5.add_glyph(cds_grating_blue,gly_grating_blue)
 
 # ccd efficiency
-cds_ccd_red = ColumnDataSource(dict(xr=ccd_efficiency_red_1,yr=ccd_efficiency_red_2))
-cds_ccd_blue = ColumnDataSource(dict(xb=ccd_efficiency_blue_1,yb=ccd_efficiency_blue_2))
+cds_ccd_red = ColumnDataSource(dict(xr=[],yr=[]))
+cds_ccd_blue = ColumnDataSource(dict(xb=[],yb=[]))
 gly_ccd_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color=dfs.default_line_color_red)
 gly_ccd_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color=dfs.default_line_color_blue)
 p6.add_glyph(cds_ccd_red,gly_ccd_red)
 p6.add_glyph(cds_ccd_blue,gly_ccd_blue)
 
 # atmospheric extinction
-cds_atmo_ext = ColumnDataSource(dict(x=atmo_ext_x, y=atmo_ext_y))
+cds_atmo_ext = ColumnDataSource(dict(x=[], y=[]))
 gly_atmo_ext = glyphs.Line(x="x",y="y",line_width=dfs.default_line_width,line_color=dfs.default_line_color_else)
 p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 
@@ -160,32 +165,11 @@ p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 cds_signal = ColumnDataSource(dict(signal=[]))
 cds_noise = ColumnDataSource(dict(noise=[]))
 
+initial_values = edl.initial_values # type: dict
+
+''' callback management '''
 
 # handles various input forms
-def num_router(_obj):
-	try:
-		if isinstance(_obj,int):
-			return _obj
-		elif isinstance(_obj,float):
-			return _obj
-		else:
-			raise ValueError("{} Invalid value: {}".format(edl.string_prefix,_obj))
-	except:
-		raise TypeError("{} Invalid type: {}".format(edl.string_prefix,type(_obj)))
-
-
-
-def type_router(_obj,_keys):
-	try:
-		if isinstance(_obj,str):
-			return int(np.where(np.asarray(_keys)==_obj.lower())[0])
-		else:
-			return num_router(_obj)
-	except:
-		raise TypeError("{} Invalid type: {}".format(edl.string_prefix,type(_obj)))
-
-
-
 class simulate:
 	"""
 	Class for simulating observatations using GMACS, designed to serve as the back-end to a static bokeh site.
@@ -195,50 +179,49 @@ class simulate:
 
 
 	"""
-
-	def __init__(self,telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
-		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
-		noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True,**kwargs):
+	
+	def __init__(self,initial_values=initial_values,**kwargs):
 		
 		# required args, maybe add range limit too
-		self.object_type = type_router(object_type,edl.object_type_keys)
+		self.object_type = self.type_router(object_type,edl.object_type_keys)
 		if (self.object_type >= len(edl.object_type_keys)):
 			self.object_type = self.object_type - len(edl.object_type_keys)
 
-		self.grating_opt = type_router(grating_opt,edl.grating_opt_keys)
+		self.grating_opt = self.type_router(grating_opt,edl.grating_opt_keys)
 		if (self.grating_opt >= 3):
 			self.grating_opt = 1
 		else:
 			self.grating_opt = 0
+		print(self.grating_opt)
 
-		self.telescope_mode = type_router(telescope_mode,edl.telescope_mode_keys)
+		self.telescope_mode = self.type_router(telescope_mode,edl.telescope_mode_keys)
 		if (self.telescope_mode >= 3):
 			edl.telescope_mode = 1
 		else:
 			edl.telescope_mode = 0
 
-		self.filter_index = type_router(filter_index,edl.filter_keys)
-		self.magnitude = num_router(magnitude)
-		self.seeing = num_router(seeing)
-		self.slit_size = num_router(slit_size)
-		self.redshift = num_router(redshift)
-		self.moon_days = num_router(moon_days)
+		self.filter_index = self.type_router(filter_index,edl.filter_keys)
+		self.magnitude = self.num_router(magnitude)
+		self.seeing = self.num_router(seeing)
+		self.slit_size = self.num_router(slit_size)
+		self.redshift = self.num_router(redshift)
+		self.moon_days = self.num_router(moon_days)
 		if isinstance(wavelength,np.ndarray):
-			self.wavelength = wavelength			
+			self.wavelength = wavelength
 			if (self.wavelength[0] >= dfs.default_limits_wavelength[0]) and (self.wavelength[-1] <= dfs.default_limits_wavelength[1]):
 				self.plot_step = self.wavelength[2] - self.wavelength[1]
 			else:
 				raise ValueError('{} Invalid wavelength extrema ({}--{}). Must be within {}--{}'.format(edl.string_prefix,wavelength[0],wavelength[-1],dfs.default_limits_wavelength[0],dfs.default_limits_wavelength[1]))
 		else:
 			raise TypeError("{} Invalid wavelength type: {} (must be array-like)".format(edl.string_prefix,type(wavelength)))
-		self.__dict__ = dict([arg for arg in kwargs if arg in edl.keys]) # pick up any optionals
 
+		self.__dict__ = dict([arg for arg in kwargs if arg in edl.keys]) # pick up any optionals
 		self.change('wavelength') # initializing plots is as easy as this
 
 
 	''' tier 0 '''
 
-	def change(self): # caller=cb_obj.name,tabs=tabs
+	def change(self,caller): # caller=cb_obj.name,tabs=tabs
 		# direct the changed values
 		if (tabs.active in [_opt for _opt in range(3)]):
 			if caller in edl.signal_keys:
@@ -254,7 +237,7 @@ class simulate:
 		
 			if (tabs.active == 0): # snr
 				self.recalculate_snr(caller)
-				plot_y1 = seflf.snr_blue
+				plot_y1 = self.snr_blue
 				plot_y2 = self.snr_red
 			elif (tabs.active == 1): # obs spec no noise
 				if self.noise:
@@ -363,7 +346,7 @@ class simulate:
 	''' tier 2 '''
 
 	def recalculate_counts(self,caller):
-		if caller in counts_keys:
+		if caller in edl.counts_keys:
 			self.recalculate_flux(caller)
 			self.change_telescope_mode(caller)
 		else:
@@ -403,11 +386,10 @@ class simulate:
 			self.recalculate_dichroic(caller)
 		if caller in edl.ccd_keys:
 			self.recalculate_ccd(caller)
-		if caller in edl.atmo_ext_keys:
-			self.recalculate_atmospheric_extinction(caller)
 		if caller in edl.mirror_keys:
 			self.recalculate_mirror(caller)
 		else:
+			self.recalculate_atmospheric_extinction(caller)
 			self.recalculate_grating(caller)
 			self.recalculate_dichroic(caller)
 			self.recalculate_ccd(caller)
@@ -446,15 +428,14 @@ class simulate:
 			self.change_grating_opt(caller)
 		if caller in edl.filter_keys:
 			self.change_filter(caller)
-		if caller in edl.mag_sys_keys():
+		if caller in edl.mag_sys_opt_keys:
 			self.change_mag_sys_opt(caller)
-		if caller in edl.atmo_ext_keys:
+		else: # callers prolly not necessary but good formality
+			self.recalculate_atmospheric_extinction(caller)
+			self.change_grating_opt(caller)
+			self.change_filter(caller)
+			self.change_mag_sys_opt(caller)
 			self.change_moon_days(caller)
-		else:
-			self.change_grating_opt()
-			self.change_filter()
-			self.change_mag_sys_opt()
-			self.change_moon_days()
 			self.change_plot_step(caller)
 
 		# heal identicalities
@@ -462,35 +443,35 @@ class simulate:
 		self.lambda_A[-1] = lambda_A[-1] - self.plot_step
 
 		ftrans = interpolate.interp1d(selected_filter[0],selected_filter[1], kind='cubic')
-		trans = ftrans(self.lambda_A)
+		self.trans = ftrans(self.lambda_A)
 
-		_extinction = spectres(self.lambda_A,dh.atmo_ext_x,dh.atmo_ext_y)
+		self._extinction = self.spectres(self.lambda_A,dh.atmo_ext_x,dh.atmo_ext_y)
 
-		flux = self.flux_A * 1e10
-		_lambda = self.lambda_A / 1e10
+		self.flux = self.flux_A * 1e10
+		self._lambda = self.lambda_A / 1e10
 
 		# valaidate flux
 		num_zeros = 0
-		for lux in flux:
+		for lux in self.flux:
 			if (lux is None) or (lux is 0):
 				num_zeros += 1
 				lux = 0
 
-		if (num_zeros >= (flux.shape[0]/5)):
-			if (num_zeros == flux.shape[0]):
+		if (num_zeros >= (self.flux.shape[0]/5)):
+			if (num_zeros == self.flux.shape[0]):
 				print('No flux in this bandpass!')
 				output_flux = np.zeros(self.wavelength.shape[0])
 			else:
-				percent_zeros = (num_zeros / flux.shape[0]) * 100
+				percent_zeros = (num_zeros / self.flux.shape[0]) * 100
 				print('{}% of this bandpass has zero flux'.format(percent_zeros))
 
 		del_mag = self.mag - self.mag_model
 		output_flux = np.multiply(self.object_y,10 ** np.negative(del_mag/2.5))
 		old_res = self.object_x[2] - self.object_x[1]
 		if (old_res < self.plot_step):
-			self.flux_y = spectres(self.wavelength,self.object_x,(output_flux*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
+			self.flux_y = self.spectres(self.wavelength,self.object_x,(output_flux*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
 		else:
-			self.flux_y = spectres(self.wavelength,self.object_x,(output_flux*1e-03))
+			self.flux_y = self.spectres(self.wavelength,self.object_x,(output_flux*1e-03))
 
 
 	''' tier 3 '''
@@ -512,10 +493,10 @@ class simulate:
 
 	def change_mag_sys_opt(self,caller):
 		if (self.mag_sys_opt == 'vega'):
-			flux_vega = spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
-			self.mag_model = -2.5 * np.log10(np.divide(math.fsum(flux * _extinction * _lambda * trans),math.fsum(flux_vega * trans * _lambda * _extinction))) + 0.03
+			flux_vega = self.spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
+			self.mag_model = -2.5 * np.log10(np.divide(math.fsum(self.flux * self._extinction * self._lambda * self.trans),math.fsum(flux_vega * self.trans * self._lambda * self._extinction))) + 0.03
 		elif (self.mag_sys_opt == 'ab'):
-			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(flux * trans * _extinction *_lambda) / math.fsum(trans * _lambda * _extinction * (const.c.value/np.square(_lambda))))
+			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(self.flux * self.trans * self._extinction * self._lambda) / math.fsum(self.trans * self._lambda * self._extinction * (const.c.value/np.square(self._lambda))))
 		else:
 			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(edl.string_prefix,self.mag_sys_opt))
 		if not sss:
@@ -534,7 +515,7 @@ class simulate:
 
 		self.object_x = self.object_type[0] * (1+redshift)
 		self.object_y = self.object_type[1]
-		self.flux_A = spectres(lambda_A,object_x,object_y)
+		self.flux_A = self.spectres(lambda_A,object_x,object_y)
 		if not sss:
 			print("{} Object type changed to {}".format(edl.string_prefix,self.object_type))
 
@@ -605,7 +586,7 @@ class simulate:
 		_x = np.arange((-5*_sigma),(5*_sigma),old_res)
 		degrade = funx(_x)/np.trapz(funx(_x))
 		sky_y = convolve_fft(sky_y,degrade)
-		self.sky_flux = spectres(self.wavelength,sky_x,sky_y)
+		self.sky_flux = self.spectres(self.wavelength,sky_x,sky_y)
 
 
 	def recalculate_dichroic(self,caller):
@@ -619,9 +600,9 @@ class simulate:
 
 	def recalculate_grating(self,caller):
 		if (self.channel is 'blue') or (self.channel is 'both'):
-			self.grating_blue = spectres(self.wavelength,(dh.grating1[0]*10),dh.grating1[1])
+			self.grating_blue = self.spectres(self.wavelength,(dh.grating1[0]*10),dh.grating1[1])
 		if (self.channel is 'red') or (self.channel is 'both'):
-			self.grating_red = spectres(self.wavelength,(dh.grating2[0]*10),dh.grating2[1])
+			self.grating_red = self.spectres(self.wavelength,(dh.grating2[0]*10),dh.grating2[1])
 
 
 	def recalculate_ccd(self,caller):
@@ -654,7 +635,7 @@ class simulate:
 
 
 	def recalculate_atmospheric_extinction(self,caller):
-		self.extinction = spectres(self.wavelength,dh.atmo_ext_x,dh.atmo_ext_y)
+		self.extinction = self.spectres(self.wavelength,dh.atmo_ext_x,dh.atmo_ext_y)
 
 
 	def change_plot_step(self,caller):
@@ -662,3 +643,171 @@ class simulate:
 			self.plot_step = self.wavelength[2] - self.wavelength[1]
 		else: # technically shouldn't happen...
 			raise ValueError('{} Invalid wavelength extrema ({}--{}). Must be within {}--{}'.format(edl.string_prefix,wavelength[0],wavelength[-1],dfs.default_limits_wavelength[0],dfs.default_limits_wavelength[1]))
+
+
+	def num_router(self,_obj):
+		try:
+			if isinstance(_obj,int):
+				return _obj
+			elif isinstance(_obj,float):
+				return _obj
+			else:
+				raise ValueError("{} Invalid value: {}".format(edl.string_prefix,_obj))
+		except:
+			raise TypeError("{} Invalid type: {}".format(edl.string_prefix,type(_obj)))
+
+
+
+	def type_router(self,_obj,_keys):
+		try:
+			if isinstance(_obj,str):
+				return int(np.where(np.asarray(_keys)==_obj.lower())[0])
+			else:
+				return self.num_router(_obj)
+		except:
+			raise TypeError("{} Invalid type: {}".format(edl.string_prefix,type(_obj)))
+
+
+	# adaptation of SpectRes, from (Adam Carnall)[https://github.com/ACCarnall/SpectRes]
+	def spectres(self,new_spec_wavs, old_spec_wavs, spec_fluxes):
+	    # Arrays of left-hand sides and widths for the old and new bins
+	    spec_lhs = np.zeros(old_spec_wavs.shape[0])
+	    spec_widths = np.zeros(old_spec_wavs.shape[0])
+	    spec_lhs = np.zeros(old_spec_wavs.shape[0])
+	    spec_lhs[0] = old_spec_wavs[0]
+	    spec_lhs[0] -= (old_spec_wavs[1] - old_spec_wavs[0])/2
+	    spec_widths[-1] = (old_spec_wavs[-1] - old_spec_wavs[-2])
+	    spec_lhs[1:] = (old_spec_wavs[1:] + old_spec_wavs[:-1])/2
+	    spec_widths[:-1] = spec_lhs[1:] - spec_lhs[:-1]
+
+	    filter_lhs = np.zeros(new_spec_wavs.shape[0]+1)
+	    filter_widths = np.zeros(new_spec_wavs.shape[0])
+	    filter_lhs[0] = new_spec_wavs[0]
+	    filter_lhs[0] -= (new_spec_wavs[1] - new_spec_wavs[0])/2
+	    filter_widths[-1] = (new_spec_wavs[-1] - new_spec_wavs[-2])
+	    filter_lhs[-1] = new_spec_wavs[-1]
+	    filter_lhs[-1] += (new_spec_wavs[-1] - new_spec_wavs[-2])/2
+	    filter_lhs[1:-1] = (new_spec_wavs[1:] + new_spec_wavs[:-1])/2
+	    filter_widths[:-1] = filter_lhs[1:-1] - filter_lhs[:-2]
+
+	    if filter_lhs[0] < spec_lhs[0] or filter_lhs[-1] > spec_lhs[-1]:
+	        raise ValueError("[ SpectRes ] : The new wavelengths specified must fall"
+	                         "within the range of the old wavelength values.")
+
+	    # Generate output arrays to be populated
+	    res_fluxes = np.zeros(spec_fluxes[..., 0].shape + new_spec_wavs.shape)
+
+	    start = 0
+	    stop = 0
+
+	    # Calculate new flux and uncertainty values, loop over new bins
+	    for j in range(new_spec_wavs.shape[0]):
+
+	        # Find first old bin which is partially covered by the new bin
+	        while spec_lhs[start+1] <= filter_lhs[j]:
+	            start += 1
+
+	        # Find last old bin which is partially covered by the new bin
+	        while spec_lhs[stop+1] < filter_lhs[j+1]:
+	            stop += 1
+
+	        # If new bin is fully within one old bin these are the same
+	        if stop == start:
+	            res_fluxes[..., j] = spec_fluxes[..., start]
+
+	        # Otherwise multiply the first and last old bin widths by P_ij
+	        else:
+	            start_factor = ((spec_lhs[start+1] - filter_lhs[j])
+	                            / (spec_lhs[start+1] - spec_lhs[start]))
+
+	            end_factor = ((filter_lhs[j+1] - spec_lhs[stop])
+	                          / (spec_lhs[stop+1] - spec_lhs[stop]))
+
+	            spec_widths[start] *= start_factor
+	            spec_widths[stop] *= end_factor
+
+	            # Populate res_fluxes spectrum and uncertainty arrays
+	            f_widths = spec_widths[start:stop+1]*spec_fluxes[..., start:stop+1]
+	            res_fluxes[..., j] = np.sum(f_widths, axis=-1)
+	            res_fluxes[..., j] /= np.sum(spec_widths[start:stop+1])
+
+	            # Put back the old bin widths to their initial values for later use
+	            spec_widths[start] /= start_factor
+	            spec_widths[stop] /= end_factor
+
+	        return res_fluxes
+        # end of simulate.spectres
+
+# end of class `simulate`
+
+
+
+general_callback = CustomJS.from_py_func(simulate(edl.initial_values))
+
+
+
+def plot_types_callback(gly_red=gly_red,gly_blue,tabs=tabs):
+	# red glyphs on
+	if (0 in cb_obj.active):
+		print(cb_obj.active)
+		gly_red.line_alpha = 0.5
+	# red glyphs off
+	elif (0 not in cb_obj.active):
+		red_glyphs[tabs.active].line_alpha = 0.0
+	# blue glyphs on
+	if (1 in cb_obj.active):
+		blue_glyphs[tabs.active].line_alpha = 0.5
+	# blue glyphs off
+	elif (1 not in cb_obj.active):
+		blue_glyphs[tabs.active].line_alpha = 0.0
+
+
+
+''' callback ligatures '''
+widget_plot_types.js_on_change('start',CustomJS.from_py_func(plot_types_callback))
+
+
+
+
+''' final ui panel building '''
+
+widget_group_one = widgetbox(children=[widget_telescope_sizes,widget_object_types,widget_types_types,widget_galaxy_type])
+widget_group_two = layout([[widget_mag_input],[widget_filters,widget_mag_type]])
+widget_group_three = widgetbox(children=[widget_grating_types,widget_redshift,widget_exposure_time,widget_seeing,widget_slit_width,widget_moon_days_header,widget_moon_days,widget_wavelengths,widget_binned_pixel_scale,widget_plot_types]) # removed widget_plot_step and widget_binned_pixel_scale_mode
+widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.default_toolbar_width)
+inputs = row(children=[widgets,tabs],sizing_mode='scale_height')
+
+l = layout([[widget_header],[inputs]])
+show(l)
+
+print('Build completed in {} seconds.'.format(time.time()-time_start))
+
+
+'''
+initial_values = dict(telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
+		filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
+		noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True)
+'''
+
+'''
+def plot_types_callback(gly_snr_red=gly_snr_red,gly_os_noise_red=gly_os_noise_red,gly_os_nonoise_red=gly_os_nonoise_red,
+	gly_sky_red=gly_sky_red,gly_dichroic_red=gly_dichroic_red,gly_grating_red=gly_grating_red,gly_ccd_red=gly_ccd_red,
+	gly_snr_blue=gly_snr_blue,gly_os_noise_blue=gly_os_noise_blue,gly_os_nonoise_blue=gly_os_nonoise_blue,
+	gly_sky_blue=gly_sky_blue,gly_dichroic_blue=gly_dichroic_blue,gly_grating_blue=gly_grating_blue,gly_ccd_blue=gly_ccd_blue,tabs=tabs):
+
+	red_glyphs = [gly_snr_red,gly_os_noise_red,gly_os_nonoise_red,gly_sky_red,gly_dichroic_red,gly_grating_red,gly_ccd_red]
+	blue_glyphs = [gly_snr_blue,gly_os_noise_blue,gly_os_nonoise_blue,gly_sky_blue,gly_dichroic_blue,gly_grating_blue,gly_ccd_blue])
+	# red glyphs on
+	if (0 in cb_obj.active):
+		print(cb_obj.active)
+		red_glyphs[tabs.active].line_alpha = 0.5
+	# red glyphs off
+	elif (0 not in cb_obj.active):
+		red_glyphs[tabs.active].line_alpha = 0.0
+	# blue glyphs on
+	if (1 in cb_obj.active):
+		blue_glyphs[tabs.active].line_alpha = 0.5
+	# blue glyphs off
+	elif (1 not in cb_obj.active):
+		blue_glyphs[tabs.active].line_alpha = 0.0
+'''
