@@ -101,6 +101,13 @@ tab6 = Panel(child=p6,title=dfs.string_calculate_types[6])
 tab7 = Panel(child=p7,title=dfs.string_calculate_types[7].title())
 tabs = Tabs(tabs=[tab0,tab1,tab2,tab3,tab4,tab5,tab6,tab7],name='tabs') # string_title[10]
 
+cds_blue = ColumnDataSource(dict(xb=[],yb=[]))
+cds_red = ColumnDataSource(dict(xr=[],yr=[]))
+gly_blue = glyphs.Line(x="xb",y="yb",line_color='blue')
+gly_red = glyphs.Line(x="xr",y="yr",line_color='red')
+p0.add_glyph(cds_blue,gly_blue)
+p0.add_glyph(cds_red,gly_red)
+
 # snr
 cds_snr_red = ColumnDataSource(dict(xr=[],yr=[]))
 cds_snr_blue = ColumnDataSource(dict(xb=[],yb=[]))
@@ -165,7 +172,11 @@ p7.add_glyph(cds_atmo_ext,gly_atmo_ext)
 cds_signal = ColumnDataSource(dict(signal=[]))
 cds_noise = ColumnDataSource(dict(noise=[]))
 
-initial_values = edl.initial_values # type: dict
+initial_values = dict(gly_blue=gly_blue,gly_red=gly_red,cds_blue=cds_blue,cds_red=cds_red,
+	telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
+	filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,
+	grating_opt=0,noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True)
+
 
 ''' callback management '''
 
@@ -181,33 +192,60 @@ class simulate:
 	"""
 	
 	def __init__(self,initial_values=initial_values,**kwargs):
+		# singletons
+		self.flux,self.counts,self.counts_noise,self.signal,self.noise,self.error,self.trans = [],[],[],[],[],[],[]
 		
 		# required args, maybe add range limit too
-		self.object_type = self.type_router(object_type,edl.object_type_keys)
+		self.object_type = self.type_router(initial_values['object_type'],edl.object_type_keys)
 		if (self.object_type >= len(edl.object_type_keys)):
 			self.object_type = self.object_type - len(edl.object_type_keys)
 
-		self.grating_opt = self.type_router(grating_opt,edl.grating_opt_keys)
+		self.grating_opt = self.type_router(initial_values['grating_opt'],edl.grating_opt_keys)
 		if (self.grating_opt >= 3):
 			self.grating_opt = 1
 		else:
 			self.grating_opt = 0
-		print(self.grating_opt)
 
-		self.telescope_mode = self.type_router(telescope_mode,edl.telescope_mode_keys)
+		self.telescope_mode = self.type_router(initial_values['telescope_mode'],edl.telescope_mode_keys)
 		if (self.telescope_mode >= 3):
 			edl.telescope_mode = 1
 		else:
 			edl.telescope_mode = 0
 
-		self.filter_index = self.type_router(filter_index,edl.filter_keys)
-		self.magnitude = self.num_router(magnitude)
-		self.seeing = self.num_router(seeing)
-		self.slit_size = self.num_router(slit_size)
-		self.redshift = self.num_router(redshift)
-		self.moon_days = self.num_router(moon_days)
-		if isinstance(wavelength,np.ndarray):
-			self.wavelength = wavelength
+		try:
+			if isinstance(initial_values['mag_sys_opt'],str):
+				if (initial_values['mag_sys_opt'].lower() == 'vega') or (initial_values['mag_sys_opt'].lower() == 'ab'):
+					self.mag_sys_opt = initial_values['mag_sys_opt']
+				else:
+					raise ValueError('{} Invalid magnitude system option (mag_sys_opt) {}'.format(self.string_prefix,initial_values['mag_sys_opt'].lower()))
+			elif isinstance(initial_values['mag_sys_opt'],int) or isinstance(initial_values['mag_sys_opt'],float):
+				if (int(initial_values['mag_sys_opt']) == 0):
+					self.mag_sys_opt = 'vega'
+				elif (int(initial_values['mag_sys_opt']) == 1):
+					self.mag_sys_opt = 'ab'
+				else:
+					raise ValueError('{} Invalid magnitude system option (mag_sys_opt) {}'.format(self.string_prefix,str(initial_values['mag_sys_opt'])))
+		except:
+			self.mag_sys_opt = 'ab' # default
+
+
+		self.filter_index = self.type_router(initial_values['filter_index'],edl.filter_keys)
+		self.magnitude = self.num_router(initial_values['magnitude'])
+		self.seeing = self.num_router(initial_values['seeing'])
+		self.slit_size = self.num_router(initial_values['slit_size'])
+		self.redshift = self.num_router(initial_values['redshift'])
+		self.moon_days = self.num_router(initial_values['moon_days'])
+
+		try:
+			if isinstance(initial_values['sss'],bool):
+				self.sss = initial_values['sss']
+			else:
+				raise TypeError('{} Subsiste sermonem statim must be type bool, not type {}'.format(self.string_prefix,type(initial_values['sss'])))
+		except:
+			self.sss = True
+
+		if isinstance(initial_values['wavelength'],np.ndarray):
+			self.wavelength = initial_values['wavelength']
 			if (self.wavelength[0] >= dfs.default_limits_wavelength[0]) and (self.wavelength[-1] <= dfs.default_limits_wavelength[1]):
 				self.plot_step = self.wavelength[2] - self.wavelength[1]
 			else:
@@ -215,7 +253,7 @@ class simulate:
 		else:
 			raise TypeError("{} Invalid wavelength type: {} (must be array-like)".format(edl.string_prefix,type(wavelength)))
 
-		self.__dict__ = dict([arg for arg in kwargs if arg in edl.keys]) # pick up any optionals
+		#self.__dict__ = dict(np.unique(np.concatenate(([arg for arg in kwargs if arg in edl.keys],[init for init in initial_values])))) # pick up any optionals
 		self.change('wavelength') # initializing plots is as easy as this
 
 
@@ -487,7 +525,7 @@ class simulate:
 			_active = 'high-resolution'
 		else:
 			raise ValueError("{} Invalid grating_opt: {}".format(edl.string_prefix,self.grating_opt))
-		if not sss:
+		if not self.sss:
 			print("{} Grating changed to {}".format(edl.string_prefix,_active))
 
 
@@ -499,7 +537,7 @@ class simulate:
 			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(self.flux * self.trans * self._extinction * self._lambda) / math.fsum(self.trans * self._lambda * self._extinction * (const.c.value/np.square(self._lambda))))
 		else:
 			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(edl.string_prefix,self.mag_sys_opt))
-		if not sss:
+		if not self.sss:
 			print("{} Magnitude system changed to {}".format(edl.string_prefix,self.mag_sys_opt.upper()))
 
 
@@ -516,7 +554,7 @@ class simulate:
 		self.object_x = self.object_type[0] * (1+redshift)
 		self.object_y = self.object_type[1]
 		self.flux_A = self.spectres(lambda_A,object_x,object_y)
-		if not sss:
+		if not self.sss:
 			print("{} Object type changed to {}".format(edl.string_prefix,self.object_type))
 
 
@@ -526,7 +564,7 @@ class simulate:
 		else:
 			raise ValueError('{} Invalid number of days since new moon: {}'.format(edl.string_prefix,self.moon_days))
 		self.recalculate_sky_flux(caller)
-		if not sss:
+		if not self.sss:
 			print("{} Days since new moon changed to {}".format(edl.string_prefix,self.moon_days))
 
 
@@ -537,7 +575,7 @@ class simulate:
 			self.area = edl.area[1]
 		else:
 			raise ValueError('{} Invalid telescope mode: {}'.format(edl.string_prefix,self.telescope_mode))
-		if not sss:
+		if not self.sss:
 			print("{} Telescope mode changed to {} (area: {} m^2)".format(edl.string_prefix,self.telescope_mode,self.area))
 
 
@@ -562,7 +600,7 @@ class simulate:
 
 		self.change_plot_step(caller)
 		self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
-		if not sss:
+		if not self.sss:
 			_active = edl.filter_files[self.filter_index]
 			print("{} Filter changed to {} ({}--{} nm)".format(edl.string_prefix,_active,selected_filter[0],selected_filter[-1]))
 
@@ -574,7 +612,7 @@ class simulate:
 		self.percent_l,self.percent_err_l = integrate.quad(funx,(-self.seeing/2),(self.seeing/2))
 		self.percent = self.percent_u * self.percent_l # can use error if you add it later...
 		self.extension = self.seeing * self.slit_size
-		if not sss:
+		if not self.sss:
 			print("{} Seeing changed to {}".format(edl.string_prefix,self.seeing))
 
 
@@ -627,7 +665,7 @@ class simulate:
 
 		if (self.bin_size > 0) and (self.bin_size < 5):
 			self.readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (self.bin_size**2))
-			if not sss:
+			if not self.sss:
 				print('{} Pixel binning: ({}x{})'.format(edl.string_prefix,self.bin_size,self.bin_size))
 				print('{} Extent: {} arcsec^2\n{} num pixels/resel: {} px\n{} spectral resolution: {} px\n{} spatial resolution: {} px'.format(edl.string_prefix,extent,edl.string_prefix,int(math.ceil(npix)),edl.string_prefix,spectral_resolution,edl.string_prefix,spatial_resolution))
 		else:
@@ -668,7 +706,7 @@ class simulate:
 			raise TypeError("{} Invalid type: {}".format(edl.string_prefix,type(_obj)))
 
 
-	# adaptation of SpectRes, from (Adam Carnall)[https://github.com/ACCarnall/SpectRes]
+	# adaptation of SpectRes, from [Adam Carnall](https://github.com/ACCarnall/SpectRes)
 	def spectres(self,new_spec_wavs, old_spec_wavs, spec_fluxes):
 	    # Arrays of left-hand sides and widths for the old and new bins
 	    spec_lhs = np.zeros(old_spec_wavs.shape[0])
@@ -695,7 +733,7 @@ class simulate:
 	                         "within the range of the old wavelength values.")
 
 	    # Generate output arrays to be populated
-	    res_fluxes = np.zeros(spec_fluxes[..., 0].shape + new_spec_wavs.shape)
+	    res_fluxes = np.zeros(spec_fluxes[0].shape + new_spec_wavs.shape)
 
 	    start = 0
 	    stop = 0
@@ -713,7 +751,7 @@ class simulate:
 
 	        # If new bin is fully within one old bin these are the same
 	        if stop == start:
-	            res_fluxes[..., j] = spec_fluxes[..., start]
+	            res_fluxes[j] = spec_fluxes[start]
 
 	        # Otherwise multiply the first and last old bin widths by P_ij
 	        else:
@@ -727,9 +765,9 @@ class simulate:
 	            spec_widths[stop] *= end_factor
 
 	            # Populate res_fluxes spectrum and uncertainty arrays
-	            f_widths = spec_widths[start:stop+1]*spec_fluxes[..., start:stop+1]
-	            res_fluxes[..., j] = np.sum(f_widths, axis=-1)
-	            res_fluxes[..., j] /= np.sum(spec_widths[start:stop+1])
+	            f_widths = spec_widths[start:stop+1]*spec_fluxes[start:stop+1]
+	            res_fluxes[j] = np.sum(f_widths, axis=-1)
+	            res_fluxes[j] /= np.sum(spec_widths[start:stop+1])
 
 	            # Put back the old bin widths to their initial values for later use
 	            spec_widths[start] /= start_factor
@@ -742,11 +780,11 @@ class simulate:
 
 
 
-general_callback = CustomJS.from_py_func(simulate(edl.initial_values))
+general_callback = CustomJS.from_py_func(simulate(initial_values))
 
 
 
-def plot_types_callback(gly_red=gly_red,gly_blue,tabs=tabs):
+def plot_types_callback(gly_red=gly_red,gly_blue=gly_blue,tabs=tabs):
 	# red glyphs on
 	if (0 in cb_obj.active):
 		print(cb_obj.active)

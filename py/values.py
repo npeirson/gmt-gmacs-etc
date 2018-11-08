@@ -85,7 +85,7 @@ obs_spec_noise_keys = np.unique(np.concatenate((signal_keys,error_keys)))
 obs_spec_nonoise_keys = signal_keys
 
 
-''' initial values '''
+'''
 initial_values = dict(gly_snr_red=gly_snr_red,gly_os_noise_red=gly_os_noise_red,gly_os_nonoise_red=gly_os_nonoise_red,
 	gly_sky_red=gly_sky_red,gly_dichroic_red=gly_dichroic_red,gly_grating_red=gly_grating_red,gly_ccd_red=gly_ccd_red,
 	gly_snr_blue=gly_snr_blue,gly_os_noise_blue=gly_os_noise_blue,gly_os_nonoise_blue=gly_os_nonoise_blue,
@@ -93,3 +93,5 @@ initial_values = dict(gly_snr_red=gly_snr_red,gly_os_noise_red=gly_os_noise_red,
 	tabs=tabs,telescope_mode='first',wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
 	filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
 	noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=True)
+]
+'''
