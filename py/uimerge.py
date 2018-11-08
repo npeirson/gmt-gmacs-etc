@@ -132,23 +132,22 @@ class simulate:
 
 	"""
 	def __init__(self,bokeh_inserts=bokeh_inserts,initial_values=initial_values,**kwargs):
-		# singletons
-		self.flux = np.ndarray([])
-		self.counts = np.ndarray([])
-		self.counts_noise = np.ndarray([])
-		self.signal = np.ndarray([])
-		self.noise = np.ndarray([])
-		self.error = np.ndarray([])
-		self.trans = np.ndarray([])
-		self._extinction = np.ndarray([])
-		#self._lambda = np.ndarray([]) # shouldn't need this. indicates problem in trickle-down system. Probably mag_sys_opt not in right keychain
-		
 		# required args, maybe add range limit too
 		'''
 		self.object_type = self.type_router(initial_values['object_type'],edl.object_type_keys)
 		if (self.object_type >= len(edl.object_type_keys)):
 			self.object_type = self.object_type - len(edl.object_type_keys)
 		'''
+		self.old_mso = ''
+
+		try:
+			if isinstance(initial_values['sss'],bool):
+				self.sss = initial_values['sss']
+			else:
+				raise TypeError('{} Subsiste sermonem statim must be type bool, not type {}'.format(self.string_prefix,type(initial_values['sss'])))
+		except:
+			self.sss = True
+
 		self.object_type = initial_values['object_type']
 
 		self.grating_opt = self.type_router(initial_values['grating_opt'],edl.grating_opt_keys)
@@ -168,16 +167,19 @@ class simulate:
 				if (initial_values['mag_sys_opt'].lower() == 'vega') or (initial_values['mag_sys_opt'].lower() == 'ab'):
 					self.mag_sys_opt = initial_values['mag_sys_opt']
 				else:
-					raise ValueError('{} Invalid magnitude system option (mag_sys_opt) {}'.format(self.string_prefix,initial_values['mag_sys_opt'].lower()))
+					raise ValueError('{} Invalid magnitude system option (mag_sys_opt) {}'.format(edl.string_prefix,initial_values['mag_sys_opt'].lower()))
 			elif isinstance(initial_values['mag_sys_opt'],int) or isinstance(initial_values['mag_sys_opt'],float):
 				if (int(initial_values['mag_sys_opt']) == 0):
 					self.mag_sys_opt = 'vega'
 				elif (int(initial_values['mag_sys_opt']) == 1):
 					self.mag_sys_opt = 'ab'
 				else:
-					raise ValueError('{} Invalid magnitude system option (mag_sys_opt) {}'.format(self.string_prefix,str(initial_values['mag_sys_opt'])))
+					raise ValueError('{} Invalid magnitude system option (mag_sys_opt) {}'.format(edl.string_prefix,str(initial_values['mag_sys_opt'])))
+			if not self.sss:
+				print('{} Magnitude system set to {}'.format(edl.string_prefix,self.mag_sys_opt))
 		except:
 			self.mag_sys_opt = 'ab' # default
+			print('{} Defaulting to magnitude system option {}'.format(edl.string_prefix,self.mag_sys_opt))
 
 		self.filter_index = self.type_router(initial_values['filter_index'],edl.filter_keys)
 		self.magnitude = self.num_router(initial_values['magnitude'])
@@ -185,14 +187,6 @@ class simulate:
 		self.slit_size = self.num_router(initial_values['slit_size'])
 		self.redshift = self.num_router(initial_values['redshift'])
 		self.moon_days = self.num_router(initial_values['moon_days'])
-
-		try:
-			if isinstance(initial_values['sss'],bool):
-				self.sss = initial_values['sss']
-			else:
-				raise TypeError('{} Subsiste sermonem statim must be type bool, not type {}'.format(self.string_prefix,type(initial_values['sss'])))
-		except:
-			self.sss = True
 
 		if isinstance(initial_values['wavelength'],np.ndarray):
 			self.wavelength = initial_values['wavelength']
@@ -417,6 +411,8 @@ class simulate:
 			self.change_grating_opt(caller)
 		if caller in edl.filter_keys:
 			self.change_filter(caller)
+		if (caller == 'object_type'):
+			self.change_object_type(caller)
 		else: # callers prolly not necessary but good formality
 			self.recalculate_atmospheric_extinction(caller)
 			self.change_grating_opt(caller)
@@ -481,21 +477,22 @@ class simulate:
 
 
 	def change_mag_sys_opt(self,caller):
-		if caller in edl.mag_sys_opt_keys:
-			self.recalculate_flux(caller)
-		else:
-			self.recalculate_flux(caller)
-		print('_lambda: {}\ntrans: {}\n_extinction: {}\nflux: {}'.format(type(self._lambda),type(self.trans),type(self._extinction),type(self.flux)))
-		if (self.mag_sys_opt == 'vega'):
-			flux_vega = self.spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
-			self.mag_model = -2.5 * np.log10(np.divide(math.fsum(self.flux * self._extinction * self._lambda * self.trans),math.fsum(flux_vega * self.trans * self._lambda * self._extinction))) + 0.03
-		elif (self.mag_sys_opt == 'ab'):
-			sq = np.square(self._lambda,where=[0,1])
-			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(self.flux * self.trans * self._extinction * self._lambda) / math.fsum(self.trans * self._lambda * self._extinction * (const.c.value/sq)))
-		else:
-			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(edl.string_prefix,self.mag_sys_opt))
-		if not self.sss:
-			print("{} Magnitude system changed to {}".format(edl.string_prefix,self.mag_sys_opt.upper()))
+		try:
+			if isinstance(self.old_mso,str):		
+				print('_lambda: {}\ntrans: {}\n_extinction: {}\nflux: {}'.format(type(self._lambda),type(self.trans),type(self._extinction),type(self.flux)))
+				if (self.mag_sys_opt == 'vega'):
+					flux_vega = self.spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
+					self.mag_model = -2.5 * np.log10(np.divide(math.fsum(self.flux * self._extinction * self._lambda * self.trans),math.fsum(flux_vega * self.trans * self._lambda * self._extinction))) + 0.03
+				elif (self.mag_sys_opt == 'ab'):
+					sq = np.square(self._lambda)
+					self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(self.flux * self.trans * self._extinction * self._lambda) / math.fsum(self.trans * self._lambda * self._extinction * (const.c.value/sq)))
+				else:
+					raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(edl.string_prefix,self.mag_sys_opt))
+				if not self.sss:
+					print("{} Magnitude system changed to {}".format(edl.string_prefix,self.mag_sys_opt.upper()))
+				self.old_mso = self.mag_sys_opt
+		except:
+			pass # no need to update
 
 
 	def change_object_type(self,caller):
