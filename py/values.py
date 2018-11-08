@@ -73,7 +73,7 @@ extension_keys = ['seeing','slit_size']
 
 # `np.unique` makes it safe to list key-dependencies in their entirety, for mental health
 counts_noise_keys = np.unique(np.concatenate((['moon_days','telescope_mode','exposure_time'],extension_keys)))
-flux_keys = np.unique(np.concatenate((['grating_opt','filter','mag_sys_opt'],filter_keys,mag_sys_opt_keys)))
+flux_keys = np.unique(np.concatenate((['grating_opt','filter'],filter_keys)))
 counts_keys = np.unique(np.concatenate((['telescope_mode'],power_keys)))
 signal_keys = np.unique(np.concatenate((total_eff_keys,counts_keys,percent_keys)))
 noise_keys = np.unique(np.concatenate((['moon_days'],counts_noise_keys)))

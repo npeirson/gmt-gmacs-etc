@@ -144,9 +144,12 @@ class simulate:
 		#self._lambda = np.ndarray([]) # shouldn't need this. indicates problem in trickle-down system. Probably mag_sys_opt not in right keychain
 		
 		# required args, maybe add range limit too
+		'''
 		self.object_type = self.type_router(initial_values['object_type'],edl.object_type_keys)
 		if (self.object_type >= len(edl.object_type_keys)):
 			self.object_type = self.object_type - len(edl.object_type_keys)
+		'''
+		self.object_type = initial_values['object_type']
 
 		self.grating_opt = self.type_router(initial_values['grating_opt'],edl.grating_opt_keys)
 		if (self.grating_opt >= 3):
@@ -176,7 +179,6 @@ class simulate:
 		except:
 			self.mag_sys_opt = 'ab' # default
 
-
 		self.filter_index = self.type_router(initial_values['filter_index'],edl.filter_keys)
 		self.magnitude = self.num_router(initial_values['magnitude'])
 		self.seeing = self.num_router(initial_values['seeing'])
@@ -201,6 +203,7 @@ class simulate:
 		else:
 			raise TypeError("{} Invalid wavelength type: {} (must be array-like)".format(edl.string_prefix,type(wavelength)))
 
+		self.plot_step = self.wavelength[2] - self.wavelength[1]
 		#self.__dict__ = dict(np.unique(np.concatenate(([arg for arg in kwargs if arg in edl.keys],[init for init in initial_values])))) # pick up any optionals
 		self.change('wavelength') # initializing plots is as easy as this
 
@@ -419,13 +422,14 @@ class simulate:
 			self.change_grating_opt(caller)
 			self.change_filter(caller)
 			self.change_moon_days(caller)
+			self.change_object_type(caller)
 			self.change_plot_step(caller)
 
 		# heal identicalities
 		self.lambda_A[0] = self.lambda_A[0] + self.plot_step
 		self.lambda_A[-1] = self.lambda_A[-1] - self.plot_step
 
-		ftrans = interpolate.interp1d(selected_filter[0],selected_filter[1], kind='cubic')
+		ftrans = interpolate.interp1d(self.selected_filter[0],self.selected_filter[1], kind='cubic')
 		self.trans = ftrans(self.lambda_A)
 
 		self._extinction = self.spectres(self.lambda_A,dh.atmo_ext_x,dh.atmo_ext_y)
@@ -448,7 +452,9 @@ class simulate:
 				percent_zeros = (num_zeros / self.flux.shape[0]) * 100
 				print('{}% of this bandpass has zero flux'.format(percent_zeros))
 
-		del_mag = self.mag - self.mag_model
+		self.change_mag_sys_opt(caller)
+
+		del_mag = self.magnitude - self.mag_model
 		output_flux = np.multiply(self.object_y,10 ** np.negative(del_mag/2.5))
 		old_res = self.object_x[2] - self.object_x[1]
 		if (old_res < self.plot_step):
@@ -494,17 +500,17 @@ class simulate:
 
 	def change_object_type(self,caller):
 		if self.object_type in edl.stellar_keys:
-			index_of = [i for i,name in enumerate(stellar_keys) if self.object_type in name][0]
-			self.object_type = dh.starfiles[index_of]
+			index_of = [i for i,name in enumerate(edl.stellar_keys) if self.object_type == name][0]
+			self.object_data = dh.starfiles[index_of]
 		elif self.object_type in edl.galactic_keys:
-			index_of = [i for i,name in enumerate(galactic_keys) if self.object_type in name][0]
-			self.object_type = dh.galaxyfiles[index_of]
+			index_of = [i for i,name in enumerate(edl.galactic_keys) if self.object_type == name][0]
+			self.object_data = dh.galaxyfiles[index_of]
 		else:
 			raise ValueError("{} Invalid object type: {}".format(edl.string_prefix,self.object_type))
 
-		self.object_x = self.object_type[0] * (1+redshift)
-		self.object_y = self.object_type[1]
-		self.flux_A = self.spectres(lambda_A,object_x,object_y)
+		self.object_x = self.object_data[0] * (1+self.redshift)
+		self.object_y = self.object_data[1]
+		self.flux_A = self.spectres(self.lambda_A,self.object_x,self.object_y)
 		if not self.sss:
 			print("{} Object type changed to {}".format(edl.string_prefix,self.object_type))
 
@@ -531,29 +537,29 @@ class simulate:
 
 
 	def change_filter(self,caller):
-		selected_filter = dh.filterfiles[self.filter_index]
-		filter_min = min(selected_filter[0])
-		filter_max = max(selected_filter[0])
+		self.selected_filter = dh.filterfiles[self.filter_index]
+		filter_min = min(self.selected_filter[0])
+		filter_max = max(self.selected_filter[0])
 
 		if (filter_min > self.wavelength[0]):
 			lambda_min = filter_min
 		elif (filter_min == self.wavelength[0]):
-			filter_min = selected_filter[int(np.where(selected_filter[0] > self.wavelength[0])[0])]
+			filter_min = self.selected_filter[int(np.where(self.selected_filter[0] > self.wavelength[0])[0])]
 		else:
 			lambda_min = self.wavelength[0]
 
 		if (filter_max < self.wavelength[-1]):
 			lambda_max = filter_max
 		elif (filter_max == self.wavelength[-1]):
-			filter_max = selected_filter[int(np.where(selected_filter[0] < self.wavelength[-1])[-1])]
+			filter_max = self.selected_filter[int(np.where(self.selected_filter[0] < self.wavelength[-1])[-1])]
 		else:
 			lambda_max = self.wavelength[-1]
 
-		self.change_plot_step(caller)
+		self.change_plot_step(caller) # i dont remember...
 		self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
 		if not self.sss:
 			_active = edl.filter_files[self.filter_index]
-			print("{} Filter changed to {} ({}--{} nm)".format(edl.string_prefix,_active,selected_filter[0][0],selected_filter[0][-1]))
+			print("{} Filter changed to {} ({}--{} nm)".format(edl.string_prefix,_active,self.selected_filter[0][0],self.selected_filter[0][-1]))
 
 
 	def recalculate_seeing(self,caller):
