@@ -139,6 +139,7 @@ class simulate:
 			self.object_type = self.object_type - len(edl.object_type_keys)
 		'''
 		self.old_mso = ''
+		self.initialize_singletons = True
 
 		try:
 			if isinstance(initial_values['sss'],bool):
@@ -222,12 +223,24 @@ class simulate:
 
 		self.plot_step = self.wavelength[2] - self.wavelength[1]
 		#self.__dict__ = dict(np.unique(np.concatenate(([arg for arg in kwargs if arg in edl.keys],[init for init in initial_values])))) # pick up any optionals
-		self.change('wavelength') # initializing plots is as easy as this
+		self.caller = 'wavelength'
+		self.change()
 
 
 	''' tier 0 '''
 
-	def change(self,caller): # caller=cb_obj.name,tabs=tabs
+	def __call__(self):
+		if (self.initialize_singletons == True):
+			self.caller = 'wavelength'
+			self.initialize_singletons = False
+		else:
+			self.caller = cb_obj
+		self.change()
+
+
+	def change(self): # caller=cb_obj.name,tabs=tabs
+		caller = self.caller
+
 		# direct the changed values
 		if (tabs.active in [_opt for _opt in range(3)]):
 			if caller in edl.signal_keys:
@@ -780,8 +793,8 @@ def plot_types_callback(gly_red=gly_red,gly_blue=gly_blue,tabs=tabs):
 
 ''' callback ligatures '''
 widget_plot_types.js_on_change('value',CustomJS.from_py_func(plot_types_callback))
-
-general_callback = CustomJS.from_py_func(simulate().change())
+session = simulate()
+general_callback = CustomJS.from_py_func(session.change)
 widget_seeing.js_on_change('value',general_callback)
 
 
