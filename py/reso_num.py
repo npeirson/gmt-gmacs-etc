@@ -108,94 +108,27 @@ gly_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color
 p0.add_glyph(cds_blue,gly_blue)
 p0.add_glyph(cds_red,gly_red)
 
-bokeh_inserts = dict(gly_blue=gly_blue,gly_red=gly_red,cds_blue=cds_blue,cds_red=cds_red,tabs=tabs,
-	widget_object_types=widget_object_types,widget_galaxy_type=widget_galaxy_type,widget_types_types=widget_types_types,
-	widget_mag_type=widget_mag_type,widget_seeing=widget_seeing,widget_grating_types=widget_grating_types,widget_slit_width=widget_slit_width,
-				widget_wavelengths=widget_wavelengths)
+bokeh_inserts = dict(cds_blue=cds_blue,cds_red=cds_red,tabs=tabs,widget_wavelengths=widget_wavelengths,widget_exposure_time=widget_exposure_time,
+	widget_object_types=widget_object_types,widget_galaxy_type=widget_galaxy_type,widget_types_types=widget_types_types,widget_mag_type=widget_mag_type,
+	widget_seeing=widget_seeing,widget_grating_types=widget_grating_types,widget_slit_width=widget_slit_width,widget_telescope_sizes=widget_telescop_sizes,widget_filers=widget_filters)
 
 initial_values = dict(telescope_mode=0,wavelength=dfs.default_wavelength,exposure_time=3600,object_type='a5v',
 	filter_index=3,mag_sys_opt='ab',magnitude=25,redshift=0,seeing=0.5,slit_size=0.5,moon_days=0,grating_opt=0,
 	noise=False,bin_option=edl.bin_options_int[edl.bin_options_default_index],channel='both',sss=False)
 
 
-''' interaction management '''
+''' callback management '''
 
-cds_blue = ColumnDataSource(dict(xb=[],yb=[]))
-cds_red = ColumnDataSource(dict(xr=[],yr=[]))
-gly_blue = glyphs.Line(x="xb",y="yb",line_width=dfs.default_line_width,line_color='blue')
-gly_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color='red')
-p0.add_glyph(cds_blue,gly_blue)
-p0.add_glyph(cds_red,gly_red)
 
-carrier_ui = dict()
-cds_wavelength = ColumnDataSource(dict(x=[]))
+#carrier_bi = ColumnDataSource(initial_values)
+cds_wavelength = ColumnDataSource(dict(x=dfs.default_wavelength))
 carrier_iv = ColumnDataSource(dict(data=[0,3600,4,3,1,25,0,0.5,0.5,0,0,False,edl.bin_options_int[edl.bin_options_default_index],'both',False]))
-carrier_sv = ColumnDataSource(dict()) # persistent variables
-
-"""
-dictionary:
-
-variables				type
-
-telescope_mode (sizes) 	int
-exposure_time 			float
-object_type 			int <---- requires attention
-filter_index 			int <---- might errors, widget_filter,, probably need to undo and undo the trickledown changes uhoh
-mag_sys_opt 			int
-magnitude 				float
-redshift 				float
-seeing 					float
-slit_size				float
-moon_day 				int
-grating_opt 			int
-noise 					bool
-bin_option 				int
-channel 				str
-
-sss 					bool
-
-area					int
-percent_u 				float
-percent_l 				float
-percent_err_u 			float
-percent_err_l 			float
-percent 				float
-extension 				float
-plot_step 				float
-
-
-extinction				col
-power					col
-counts 					col
-counts_noise 			col
-lambda_A 				col
-trans					col
-_extinction 			col
-flux 					col
-_lambda 				col
-flux_y 					col
-delta_lambda			col
-mag_model				col
-flux_A 					col
-selected_filter 		col
-sky_flux 				col
-readnoise 				col
-mirror 					col
-
-snr 					col,col
-signal 					col,col
-noise 					col,col
-error 					col,col
-dichro 					col,col
-ccd 					col,col
-grating 				col,col
-total_eff 				col,col
-total_eff_noise 		col,col
-object 					col,col (x,y)
-
-
-"""
-
+singletons_scalar = ColumnDataSource(dict(scalars=[0,0.,0.,0.,0.,0.,0.,0.]))
+singletons_arrays = ColumnDataSource(dict(extinction=[],power=[],counts=[],counts_noise=[],lambda_A=[],trans=[],_extinction=[],flux=[],_lambda=[],
+											flux_y=[],delta_lambda=[],mag_model=[],flux_A=[],selected_filter=[],sky_flux=[],readnoise=[],mirror=[]))
+singletons_matrices = ColumnDataSource(dict(snr_blue=[],snr_red=[],signal_blue=[],signal_red=[],noise_blue=[],noise_red=[],error_blue=[],error_red=[],
+											dichro_blue=[],dichro_red=[],ccd_blue=[],ccd_red=[],grating_blue=[],grating_red=[],total_eff_blue=[],
+											total_eff_red=[],object_x=[],object_y=[]))
 
 '''
 
@@ -203,14 +136,15 @@ carrier_iv = ColumnDataSource(dict(telescope_mode=0,expoure_time=3600,object_typ
 	noise=False,bin_option=1,channel=0,sss=0))
 '''
 
-def convertable_callback(initial_values=carrier_iv):
+def convertable_callback(initial_values=carrier_iv,ss=singletons_scalar,sa=singletons_arrays,sm=singletons_matrices,wavelength=cds_wavelength):
 	''' tier 0 '''
-	def __call__(self):
+	def __call__():
 		print("{} Call from {}".format(edl.string_prefix,cb_obj.name))
+		change(cb_obj.name)
 
 
-	def change(self,caller): # caller=cb_obj.name,tabs=tabs
-	#caller = self.caller
+	def change(caller): # caller=cb_obj.name,tabs=tabs
+	caller = cb_obj.value
 
 	# direct the changed values
 		if (tabs.active in [_opt for _opt in range(3)]):
@@ -227,34 +161,34 @@ def convertable_callback(initial_values=carrier_iv):
 		
 			if (tabs.active == 0): # snr
 				self.recalculate_snr(caller)
-				plot_y1 = self.snr_blue
-				plot_y2 = self.snr_red
+				plot_y1 = sm.data['snr_blue']
+				plot_y2 = sm.data['snr_red']
 			elif (tabs.active == 1): # obs spec no noise
 				if self.noise:
-					plot_y1 = np.add(self.signal_blue,self.error_blue)
-					plot_y2 = np.add(self.signal_red,self.error_blue)
+					plot_y1 = np.add(sm.data['signal_blue'],sm.data['error_blue'])
+					plot_y2 = np.add(sm.data['signal_red'],sm.data['error_red'])
 				else:
-					plot_y1 = self.signal_blue
-					plot_y2 = self.signal_red
+					plot_y1 = sm.data['signal_blue']
+					plot_y2 = sm.data['signal_red']
 			elif (tabs.active == 2): # obs sky background
-				plot_y1 = self.error_blue
-				plot_y2 = self.error_red
+				plot_y1 = sm.data['error_blue']
+				plot_y2 = sm.data['error_red']
 			else:
 				pass # pass to other options
 
 		else:
 			if (tabs.active == 3): # dichroic throughput
-				plot_y1 = self.dichro_blue
-				plot_y2 = self.dichro_red
+				plot_y1 = sm.data['dichro_blue']
+				plot_y2 = sm.data['dichro_red']
 			elif (tabs.active == 4): # grating throughput
-				plot_y1 = self.grating_blue
-				plot_y2 = self.grating_red
+				plot_y1 = sm.data['grating_blue']
+				plot_y2 = sm.data['grating_red']
 			elif (tabs.active == 5): # CCD QE
-				plot_y1 = self.ccd_blue
-				plot_y2 = self.ccd_red
+				plot_y1 = sm.data['ccd_blue']
+				plot_y2 = sm.data['ccd_red']
 			elif (tabs.active == 6): # atmospheric extinction
-				plot_y1 = self.extinction
-				plot_y2 = self.extinction
+				plot_y1 = sa.data['extinction']
+				plot_y2 = sa.data['extinction']
 			else:
 				raise ValueError("{} Invalid active tab: {}".format(edl.string_prefix,tabs.active))
 
@@ -273,7 +207,13 @@ def convertable_callback(initial_values=carrier_iv):
 			elif red_active and not blue_active:
 				self.channel = 'red'
 
-		return plot_y1,plot_y2
+		cds_blue.data['xb'] = cds_wavelength.data['x']
+		cds_red.data['xr'] = cds_wavelength.data['x']
+		cds_blue.data['yb'] = plot_y1
+		cds_red.data['yr'] = plot_y2
+
+		cds_blue.data.change.emit()
+		cds_red.data.change.emit()
 
 
 		def recalculate_snr(self,caller):
@@ -289,9 +229,11 @@ def convertable_callback(initial_values=carrier_iv):
 				self.recalculate_noise(caller)
 
 			if (self.channel == 'blue') or (self.channel == 'both'):
-				self.snr_blue = np.divide(self.signal_blue,np.sqrt(self.signal_blue + self.noise_blue + np.square(self.readnoise)))
+				sm.data['snr_blue'] = np.divide(sm.data['signal_blue'],np.sqrt(sm.data['signal_blue'] + sm.data['noise_blue'] + np.square(sa.data['readnoise'])))
 			if (self.channel == 'red') or (self.channel == 'both'):
-				self.snr_red = np.divide(self.signal_red,np.sqrt(self.signal_red + self.noise_red + np.square(self.readnoise)))
+				sm.data['snr_red'] = np.divide(sm.data['signal_red'],np.sqrt(sm.data['signal_red'] + sm.data['noise_red'] + np.square(sa.data['readnoise'])))
+
+			sm.data.change.emit()
 
 
 		def recalculate_error(self,caller):
@@ -310,11 +252,13 @@ def convertable_callback(initial_values=carrier_iv):
 				self.recalculate_snr(caller)
 
 			if (self.channel == 'blue') or (self.channel == 'both'):
-				sigma_blue = np.sqrt(self.signal_blue + self.noise_blue + np.square(self.readnoise))
-				self.error_blue = np.random.normal(loc=0, scale=sigma_blue,size=len(self.snr_blue))
+				sigma_blue = np.sqrt(sm.data['signal_blue'] + sm.data['noise_blue'] + np.square(sa.data['readnoise']))
+				sm.data['error_blue'] = np.random.normal(loc=0, scale=sigma_blue,size=len(sm.data['snr_blue']))
 			if (self.channel == 'red') or (self.channel == 'both'):
-				sigma_red = np.sqrt(self.signal_red + self.noise_red + np.square(self.readnoise))
-				self.error_red = np.random.normal(loc=0, scale=sigma_red,size=len(self.snr_red))
+				sigma_red = np.sqrt(sm.data['signal_red'] + sm.data['noise_red'] + np.square(sa.data['readnoise']))
+				sm.data['error_red'] = np.random.normal(loc=0, scale=sigma_red,size=len(sm.data['snr_red']))
+
+			sm.data.change.emit()
 
 
 		''' tier 1 '''
@@ -332,9 +276,12 @@ def convertable_callback(initial_values=carrier_iv):
 				self.recalculate_efficiency(caller)
 
 			if (self.channel == 'blue') or (self.channel == 'both'):
-				self.signal_blue = np.multiply((self.counts * self.percent), self.total_eff_blue)
+				sm.data['signal_blue'] = np.multiply((sa.data['counts'] * ss.data['data'][5]), sm.data['total_eff_blue'])
 			if (self.channel == 'red') or (self.channel == 'both'):
-				self.signal_red = np.multiply((self.counts * self.percent), self.total_eff_red)
+				sm.data['signal_red'] = np.multiply((sa.data['counts'] * ss.data['data'][5]), sm.data['total_eff_red'])
+
+			sm.data.change.emit()
+
 
 		def recalculate_noise(self,caller):
 			if caller in edl.counts_noise_keys:
@@ -344,9 +291,11 @@ def convertable_callback(initial_values=carrier_iv):
 				self.recalculalte_efficiency_noise(caller)
 
 			if (self.channel == 'blue') or (self.channel == 'both'):
-				self.noise_blue = np.multiply(self.counts_noise,self.total_eff_noise_blue)
+				sm.data['noise_blue'] = np.multiply(sa.data['counts_noise'],sm.data['total_eff_noise_blue'])
 			if (self.channel == 'red') or (self.channel == 'both'):
-				self.noise_red = np.multiply(self.counts_noise,self.total_eff_noise_red)
+				sm.data['noise_red'] = np.multiply(sa.data['counts_noise'],sm.data['total_eff_noise_red'])
+
+			sm.data.change.emit()
 
 
 		''' tier 2 '''
@@ -360,8 +309,10 @@ def convertable_callback(initial_values=carrier_iv):
 				self.change_telescope_mode(caller)
 				self.change_plot_step(caller)
 
-			self.power = self.flux_y * self.area * self.exposure_time * self.plot_step
-			self.counts = np.divide(np.divide(self.power,np.divide((astroconst.h.value * astroconst.c.value),self.wavelength)),1e10)
+			sa.data['power'] = sa.data['flux_y'] * ss.data['data'][0] * widget_exposure_time.value * ss.data['data'][7]
+			sa.data['counts'] = np.divide(np.divide(sa.data['power'],np.divide((astroconst.h.value * astroconst.c.value),cds_wavelength.data['x'])),1e10)
+
+			sa.data.change.emit()
 
 
 		def recalculate_counts_noise(self,caller):
@@ -377,7 +328,9 @@ def convertable_callback(initial_values=carrier_iv):
 				self.change_telescope_mode(caller)
 				self.change_plot_step(caller)
 
-			self.counts_noise = np.multiply(np.multiply(self.sky_flux,self.extension),(self.area*self.exposure_time*self.plot_step))
+			sa.data['counts_noise'] = np.multiply(np.multiply(sa.data['sky_flux'],ss.data['data'][6]),(ss.data['data'][0]*widget_exposure_time.value*ss.data['data'][7]))
+
+			sa.data.change.emit()
 
 
 		def recalculate_percent(self,caller):
@@ -397,9 +350,11 @@ def convertable_callback(initial_values=carrier_iv):
 				self.recalculate_mirror(caller)
 
 			if (self.channel == 'blue') or (self.channel == 'both'):
-				self.total_eff_blue = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),np.multiply((self.ccd_blue * (edl.coating_eff_blue * self.extinction)),np.square(self.mirror)))
+				sm.data['total_eff_blue'] = np.multiply(np.multiply(sm.data['dichro_blue'],sm.data['grating_blue']),np.multiply((sm.data['ccd_blue'] * (edl.coating_eff_blue * sa.data['extinction'])),np.square(sa.data['mirror'])))
 			if (self.channel == 'red') or (self.channel == 'both'):
-				self.total_eff_red = np.multiply(np.multiply(self.dichro_red,self.grating_red),np.multiply((self.ccd_red * (edl.coating_eff_red * self.extinction)),np.square(self.mirror)))
+				sm.data['total_eff_red'] = np.multiply(np.multiply(sm.data['dichro_red'],sm.data['grating_red']),np.multiply((sm.data['ccd_red'] * (edl.coating_eff_red * sa.data['extinction'])),np.square(sa.data['mirror'])))
+
+			sm.data.change.emit()
 
 
 		def recalculalte_efficiency_noise(self,caller):
@@ -412,9 +367,11 @@ def convertable_callback(initial_values=carrier_iv):
 				self.recalculate_mirror(caller)
 
 			if (self.channel == 'blue') or (self.channel == 'both'):
-				self.total_eff_noise_red = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),(self.ccd_blue * np.square(self.mirror) * edl.coating_eff_blue))
+				sm.data['total_eff_noise_red'] = np.multiply(np.multiply(sm.data['dichro_blue'],sm.data['grating_blue']),(sm.data['ccd_blue'] * np.square(sa.data['mirror']) * edl.coating_eff_blue))
 			if (self.channel == 'red') or (self.channel == 'both'):
-				self.total_eff_noise_blue = np.multiply(np.multiply(self.dichro_red,self.grating_red),(self.ccd_red * np.square(self.mirror) * edl.coating_eff_red))
+				sm.data['total_eff_noise_blue'] = np.multiply(np.multiply(sm.data['dichro_red'],sm.data['grating_red']),(sm.data['ccd_red'] * np.square(sa.data['mirror']) * edl.coating_eff_red))
+
+			sm.data.change.emit()
 
 
 		def recalculate_flux(self,caller):
@@ -433,94 +390,97 @@ def convertable_callback(initial_values=carrier_iv):
 				self.change_plot_step(caller)
 
 			# heal identicalities
-			self.lambda_A[0] = self.lambda_A[0] + self.plot_step
-			self.lambda_A[-1] = self.lambda_A[-1] - self.plot_step
+			sa.data['lambda_A'][0] = sa.data['lambda_A'][0] + ss.data['data'][7]
+			sa.data['lambda_A'][-1] = sa.data['lambda_A'][-1] - ss.data['data'][7]
 
-			ftrans = interpolate.interp1d(self.selected_filter[0],self.selected_filter[1], kind='cubic')
-			self.trans = ftrans(self.lambda_A)
+			ftrans = interpolate.interp1d(sa.data['selected_filter'][0],sa.data['selected_filter'][1], kind='cubic')
+			sa.data['trans'] = ftrans(sa.data['lambda_A'])
 
-			self._extinction = self.spectres(self.lambda_A,dh.atmo_ext_x,dh.atmo_ext_y)
+			sa.data['_extinction'] = self.spectres(sa.data['lambda_A'],dh.atmo_ext_x,dh.atmo_ext_y)
 
-			self.flux = self.flux_A * 1e10
-			self._lambda = self.lambda_A / 1e10
+			sa.data['flux'] = sa.data['flux_A'] * 1e10
+			sa.data['_lambda'] = sa.data['lambda_A'] / 1e10
 
 			# valaidate flux
 			num_zeros = 0
-			for lux in self.flux:
+			for lux in sa.data['flux']:
 				if (lux is None) or (lux is 0):
 					num_zeros += 1
 					lux = 0
 
-			if (num_zeros >= (self.flux.shape[0]/5)):
-				if (num_zeros == self.flux.shape[0]):
-					print('No flux in this bandpass!')
-					output_flux = np.zeros(self.wavelength.shape[0])
+			if (num_zeros >= (sa.data['flux'].shape[0]/5)):
+				if (num_zeros == sa.data['flux'].shape[0]):
+					print('{} Error: No flux in this bandpass!'.format(edl.string_prefix))
+					output_flux = np.zeros(cds_wavelength.data['x'].shape[0])
 				else:
-					percent_zeros = (num_zeros / self.flux.shape[0]) * 100
-					print('{}% of this bandpass has zero flux'.format(percent_zeros))
+					percent_zeros = (num_zeros / sa.data['flux'].shape[0]) * 100
+					print('{} Note: {}% of this bandpass has zero flux'.format(edl.string_prefix,percent_zeros))
 
-			self.change_mag_sys_opt(caller)
+			change_mag_sys_opt(caller)
 
-			del_mag = self.magnitude - self.mag_model
-			output_flux = np.multiply(self.object_y,10 ** np.negative(del_mag/2.5))
-			old_res = self.object_x[2] - self.object_x[1]
-			if (old_res < self.plot_step):
-				self.flux_y = self.spectres(self.wavelength,self.object_x,(output_flux*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
+			del_mag = self.magnitude - sa.data['mag_model']
+			output_flux = np.multiply(sm.data['object_y'],10 ** np.negative(del_mag/2.5))
+			old_res = sm.data['object_x'][2] - sm.data['object_x'][1]
+			if (old_res < ss.data['data'][7]):
+				sa.data['flux_y'] = self.spectres(cds_wavelength.data['x'],sm.data['object_x'],(output_flux*1e-03)) # ergs s-1 cm-2 A-1 to J s-1 m-2 A-1
 			else:
-				self.flux_y = self.spectres(self.wavelength,self.object_x,(output_flux*1e-03))
+				sa.data['flux_y'] = self.spectres(cds_wavelength.data['x'],sm.data['object_x'],(output_flux*1e-03))
+
+			sa.data.change.emit()
 
 
 		''' tier 3 '''
 
-
 		def change_grating_opt(self,caller):
 			_active = ''
 			if self.grating_opt in edl.grating_opt_keys[:2]: # low resolution... or is this backards?
-				self.delta_lambda = edl.dld[0] * self.slit_size / 0.7
+				sa.data['delta_lambda'] = edl.dld[0] * self.slit_size / 0.7
 				_active = 'low-resolution'
 			elif self.grating_opt in edl.grating_opt_keys[3:]:
-				self.delta_lambda = edl.dld[1] * self.slit_size / 0.7
+				sa.data['delta_lambda'] = edl.dld[1] * self.slit_size / 0.7
 				_active = 'high-resolution'
 			else:
 				raise ValueError("{} Invalid grating_opt: {}".format(edl.string_prefix,self.grating_opt))
 			if not self.sss:
 				print("{} Grating changed to {}".format(edl.string_prefix,_active))
 
+			sa.data.change.emit()
+
 
 		def change_mag_sys_opt(self,caller):
-			try:
-				if isinstance(self.old_mso,str):		
-					#print('_lambda: {}\ntrans: {}\n_extinction: {}\nflux: {}'.format(type(self._lambda),type(self.trans),type(self._extinction),type(self.flux))) # for debugging
-					if (self.mag_sys_opt == 'vega'):
-						flux_vega = self.spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
-						self.mag_model = -2.5 * np.log10(np.divide(math.fsum(self.flux * self._extinction * self._lambda * self.trans),math.fsum(flux_vega * self.trans * self._lambda * self._extinction))) + 0.03
-					elif (self.mag_sys_opt == 'ab'):
-						sq = np.square(self._lambda)
-						self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(self.flux * self.trans * self._extinction * self._lambda) / math.fsum(self.trans * self._lambda * self._extinction * (astroconst.c.value/sq)))
-					else:
-						raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(edl.string_prefix,self.mag_sys_opt))
-					if not self.sss:
-						print("{} Magnitude system changed to {}".format(edl.string_prefix,self.mag_sys_opt.upper()))
-					self.old_mso = self.mag_sys_opt
-			except:
-				pass # no need to update
+			#print('_lambda: {}\ntrans: {}\n_extinction: {}\nflux: {}'.format(type(sa.data['_lambda']),type(sa.data['trans']),type(sa.data['_extinction']),type(sa.data['flux']))) # for debugging
+			if (self.mag_sys_opt == 'vega'):
+				flux_vega = self.spectres(cds_wavelength.data['x'],dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
+				sa.data['mag_model'] = -2.5 * np.log10(np.divide(math.fsum(sa.data['flux'] * sa.data['_extinction'] * sa.data['_lambda'] * sa.data['trans']),math.fsum(flux_vega * sa.data['trans'] * sa.data['_lambda'] * sa.data['_extinction']))) + 0.03
+			elif (self.mag_sys_opt == 'ab'):
+				sq = np.square(sa.data['_lambda'])
+				sa.data['mag_model'] = -48.6 - 2.5 * np.log10(math.fsum(sa.data['flux'] * sa.data['trans'] * sa.data['_extinction'] * sa.data['_lambda']) / math.fsum(sa.data['trans'] * sa.data['_lambda'] * sa.data['_extinction'] * (astroconst.c.value/sq)))
+			else:
+				raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(edl.string_prefix,self.mag_sys_opt))
+			if not self.sss:
+				print("{} Magnitude system changed to {}".format(edl.string_prefix,self.mag_sys_opt.upper()))
+
+			sa.data.change.emit()
 
 
 		def change_object_type(self,caller):
 			if self.object_type in edl.stellar_keys:
 				index_of = [i for i,name in enumerate(edl.stellar_keys) if self.object_type == name][0]
-				self.object_data = dh.starfiles[index_of]
+				object_data = dh.starfiles[index_of]
 			elif self.object_type in edl.galactic_keys:
 				index_of = [i for i,name in enumerate(edl.galactic_keys) if self.object_type == name][0]
-				self.object_data = dh.galaxyfiles[index_of]
+				object_data = dh.galaxyfiles[index_of]
 			else:
 				raise ValueError("{} Invalid object type: {}".format(edl.string_prefix,self.object_type))
 
-			self.object_x = self.object_data[0] * (1+self.redshift)
-			self.object_y = self.object_data[1]
-			self.flux_A = self.spectres(self.lambda_A,self.object_x,self.object_y)
+			sm.data['object_x'] = object_data[0] * (redshift)
+			sm.data['object_y'] = object_data[1]
+			sa.data['flux_A'] = self.spectres(sa.data['lambda_A'],sm.data['object_x'],sm.data['object_y'])
 			if not self.sss:
 				print("{} Object type changed to {}".format(edl.string_prefix,self.object_type))
+
+			sm.data.change.emit()
+			sa.data.change.emit()
 
 
 		def change_moon_days(self,caller):
@@ -534,92 +494,106 @@ def convertable_callback(initial_values=carrier_iv):
 
 
 		def change_telescope_mode(self,caller):
-			if self.telescope_mode in edl.telescope_mode_keys[:3]:
-				self.area = edl.area[0]
-			elif self.telescope_mode in edl.telescope_mode_keys[4:]:
-				self.area = edl.area[1]
+			if widget_telescope_sizes.active == 1:
+				ss.data['data'][0] = edl.area[0]
+			elif widget_telescope_sizes.active == 0:
+				ss.data['data'][0] = edl.area[1]
 			else:
-				raise ValueError('{} Invalid telescope mode: {}'.format(edl.string_prefix,self.telescope_mode))
+				raise ValueError('{} Invalid telescope mode: {}'.format(edl.string_prefix,widget.telescope_sizes.active))
 			if not self.sss:
-				print("{} Telescope mode changed to {} (area: {} m^2)".format(edl.string_prefix,self.telescope_mode,self.area))
+				print("{} Telescope mode changed to {} (area: {} m^2)".format(edl.string_prefix,widget_telescope_sizes.active,ss.data['data'][0]))
 
 
 		def change_filter(self,caller):
-			self.selected_filter = dh.filterfiles[self.filter_index]
-			filter_min = min(self.selected_filter[0])
-			filter_max = max(self.selected_filter[0])
+			sa.data['selected_filter'] = dh.filterfiles[self.filter_index]
+			filter_min = min(sa.data['selected_filter'][0])
+			filter_max = max(sa.data['selected_filter'][0])
 
-			if (filter_min > self.wavelength[0]):
+			if (filter_min > cds_wavelength.data['x'][0]):
 				lambda_min = filter_min
-			elif (filter_min == self.wavelength[0]):
-				filter_min = self.selected_filter[int(np.where(self.selected_filter[0] > self.wavelength[0])[0])]
+			elif (filter_min == cds_wavelength.data['x'][0]):
+				filter_min = sa.data['selected_filter'][int(np.where(sa.data['selected_filter'][0] > cds_wavelength.data['x'][0])[0])]
 			else:
-				lambda_min = self.wavelength[0]
+				lambda_min = cds_wavelength.data['x'][0]
 
-			if (filter_max < self.wavelength[-1]):
+			if (filter_max < cds_wavelength.data['x'][-1]):
 				lambda_max = filter_max
-			elif (filter_max == self.wavelength[-1]):
-				filter_max = self.selected_filter[int(np.where(self.selected_filter[0] < self.wavelength[-1])[-1])]
+			elif (filter_max == cds_wavelength.data['x'][-1]):
+				filter_max = sa.data['selected_filter'][int(np.where(sa.data['selected_filter'][0] < cds_wavelength.data['x'][-1])[-1])]
 			else:
-				lambda_max = self.wavelength[-1]
+				lambda_max = cds_wavelength.data['x'][-1]
 
 			self.change_plot_step(caller) # i dont remember...
-			self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
+			sa.data['lambda_A'] = np.arange(lambda_min,lambda_max,ss.data['data'][7])
 			if not self.sss:
 				_active = edl.filter_files[self.filter_index]
-				print("{} Filter changed to {} ({}--{} nm)".format(edl.string_prefix,_active,self.selected_filter[0][0],self.selected_filter[0][-1]))
+				print("{} Filter changed to {} ({}--{} nm)".format(edl.string_prefix,_active,sa.data['selected_filter'][0][0],sa.data['selected_filter'][0][-1]))
+
+			sa.data.change.emit()
 
 
 		def recalculate_seeing(self,caller):
 			_sigma = self.seeing / gaussian_sigma_to_fwhm
 			funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.multiply(np.square(_sigma),2))))
-			self.percent_u,self.percent_err_u = integrate.quad(funx,(-self.slit_size/2),(self.slit_size/2))
-			self.percent_l,self.percent_err_l = integrate.quad(funx,(-self.seeing/2),(self.seeing/2))
-			self.percent = self.percent_u * self.percent_l # can use error if you add it later...
-			self.extension = self.seeing * self.slit_size
+			ss.data['data'][1],ss.data['data'][3] = integrate.quad(funx,(-self.slit_size/2),(self.slit_size/2))
+			ss.data['data'][2],ss.data['data'][4] = integrate.quad(funx,(-self.seeing/2),(self.seeing/2))
+			ss.data['data'][5] = ss.data['data'][1] * ss.data['data'][2] # can use error if you add it later...
+			ss.data['data'][6] = self.seeing * self.slit_size
 			if not self.sss:
 				print("{} Seeing changed to {}".format(edl.string_prefix,self.seeing))
+
+			ss.data.change.emit()
 
 
 		def recalculate_sky_flux(self,caller):
 			sky_x = self.sky_background[0] * 1e4
 			sky_y = self.sky_background[1] / 1e4
 			old_res = sky_x[2] - sky_x[1]
-			_sigma = self.delta_lambda / gaussian_sigma_to_fwhm
+			_sigma = sa.data['delta_lambda'] / gaussian_sigma_to_fwhm
 			_x = np.arange((-5*_sigma),(5*_sigma),old_res)
 			funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.multiply(np.square(_sigma),2))))
 			degrade = funx(_x)/np.trapz(funx(_x))
 			sky_y = convolve_fft(sky_y,degrade)
-			self.sky_flux = self.spectres(self.wavelength,sky_x,sky_y)
+			sa.data['sky_flux'] = self.spectres(cds_wavelength.data['x'],sky_x,sky_y)
+
+			sa.data.change.emit()
 
 
 		def recalculate_dichroic(self,caller):
 			if (self.channel is 'blue') or (self.channel is 'both'):
 				fblue_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y1, kind='cubic')
-				self.dichro_blue = fblue_dichro(self.wavelength)
+				sm.data['dichro_blue'] = fblue_dichro(cds_wavelength.data['x'])
 			if (self.channel is 'red') or (self.channel is 'both'):
 				fred_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y2, kind='cubic')
-				self.dichro_red = fred_dichro(self.wavelength)
+				sm.data['dichro_red'] = fred_dichro(cds_wavelength.data['x'])
+
+			sm.data.change.emit()
 
 
 		def recalculate_grating(self,caller):
 			if (self.channel is 'blue') or (self.channel is 'both'):
-				self.grating_blue = self.spectres(self.wavelength,(dh.grating1[0]*10),dh.grating1[1])
+				sm.data['grating_blue'] = self.spectres(cds_wavelength.data['x'],(dh.grating1[0]*10),dh.grating1[1])
 			if (self.channel is 'red') or (self.channel is 'both'):
-				self.grating_red = self.spectres(self.wavelength,(dh.grating2[0]*10),dh.grating2[1])
+				sm.data['grating_red'] = self.spectres(cds_wavelength.data['x'],(dh.grating2[0]*10),dh.grating2[1])
+
+			sm.data.change.emit()
 
 
 		def recalculate_ccd(self,caller):
 			if (self.channel is 'blue') or (self.channel is 'both'):
 				fblue_ccd = interpolate.interp1d((dh.ccd1[0]*10),dh.ccd1[1], kind='cubic')
-				self.ccd_blue = fblue_ccd(self.wavelength)
+				sm.data['ccd_blue'] = fblue_ccd(cds_wavelength.data['x'])
 			if (self.channel is 'red') or (self.channel is 'both'):
 				fred_ccd = interpolate.interp1d((dh.ccd2[0]*10),dh.ccd2[1], kind='cubic')
-				self.ccd_red = fred_ccd(self.wavelength)
+				sm.data['ccd_red'] = fred_ccd(cds_wavelength.data['x'])
+
+			sm.data.change.emit()
 
 		def recalculate_mirror(self,caller):
 			fmirror = interpolate.interp1d(dh.mirror_file_x,dh.mirror_file_y, kind='cubic')
-			self.mirror = fmirror(self.wavelength)
+			sa.data['mirror'] = fmirror(cds_wavelength.data['x'])
+
+			sa.data.change.emit()
 
 		def recalculate_readnoise(self,caller): # probably not implemented in all necessary places yet...
 			spectral_resolution = math.ceil((self.slit_size/(0.7/12))/2)*2 # px (ceil()/2)*2 to round up to next even integer
@@ -630,21 +604,25 @@ def convertable_callback(initial_values=carrier_iv):
 			rn = edl.rn_default
 
 			if (self.bin_size > 0) and (self.bin_size < 5):
-				self.readnoise = math.ceil(rn * spectral_resolution * spatial_resolution / (self.bin_size**2))
+				sa.data['readnoise'] = math.ceil(rn * spectral_resolution * spatial_resolution / (self.bin_size**2))
 				if not self.sss:
 					print('{} Pixel binning: ({}x{})'.format(edl.string_prefix,self.bin_size,self.bin_size))
 					print('{} Extent: {} arcsec^2\n{} num pixels/resel: {} px\n{} spectral resolution: {} px\n{} spatial resolution: {} px'.format(edl.string_prefix,extent,edl.string_prefix,int(math.ceil(npix)),edl.string_prefix,spectral_resolution,edl.string_prefix,spatial_resolution))
 			else:
 				raise ValueError('{} Invalid pixel binning option: {}'.format(edl.string_prefix,self.bin_size))
 
+			sa.data.change.emit()
+
 
 		def recalculate_atmospheric_extinction(self,caller):
-			self.extinction = self.spectres(self.wavelength,dh.atmo_ext_x,dh.atmo_ext_y)
+			sa.data['extinction'] = self.spectres(cds_wavelength.data['x'],dh.atmo_ext_x,dh.atmo_ext_y)
+			
+			sa.data.change.emit()
 
 
 		def change_plot_step(self,caller):
-			if (self.wavelength[0] >= dfs.default_limits_wavelength[0]) and (self.wavelength[-1] <= dfs.default_limits_wavelength[1]):
-				self.plot_step = self.wavelength[2] - self.wavelength[1]
+			if (cds_wavelength.data['x'][0] >= dfs.default_limits_wavelength[0]) and (cds_wavelength.data['x'][-1] <= dfs.default_limits_wavelength[1]):
+				ss.data['data'][7] = cds_wavelength.data['x'][2] - cds_wavelength.data['x'][1]
 			else: # technically shouldn't happen...
 				raise ValueError('{} Invalid wavelength extrema ({}--{}). Must be within {}--{}'.format(edl.string_prefix,wavelength[0],wavelength[-1],dfs.default_limits_wavelength[0],dfs.default_limits_wavelength[1]))
 
@@ -748,17 +726,16 @@ def convertable_callback(initial_values=carrier_iv):
 def plot_types_callback(gly_red=gly_red,gly_blue=gly_blue,tabs=tabs):
 	# red glyphs on
 	if (0 in cb_obj.active):
-		print(cb_obj.active)
 		gly_red.line_alpha = 0.5
 	# red glyphs off
 	elif (0 not in cb_obj.active):
-		red_glyphs[tabs.active].line_alpha = 0.0
+		gly_red.line_alpha = 0.0
 	# blue glyphs on
 	if (1 in cb_obj.active):
-		blue_glyphs[tabs.active].line_alpha = 0.5
+		gly_blue.line_alpha = 0.5
 	# blue glyphs off
 	elif (1 not in cb_obj.active):
-		blue_glyphs[tabs.active].line_alpha = 0.0
+		gly_blue.line_alpha = 0.0
 
 
 ''' callback ligatures '''
