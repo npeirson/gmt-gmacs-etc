@@ -12,6 +12,31 @@ import numpy as np
 
 import keys as etkeys
 import defaults as dfs
+'''
+def registrar(kwargs):
+	validated_args,validated_values = np.empty(0),np.empty(0)
+	for _key,_value in kwargs.items():
+		if isinstance(_key,str):
+			_key,_value = _key.lower(),_value.lower()
+			for i in range(len(etkeys.arguments)): 		# go through list of lists
+				if _key in etkeys.arguments[i]:			# see if key is in each one
+					_key = etkeys.arguments[i][0]		# if it is, standardize it
+				else:
+					raise ValueError("{} Registrar reports key not in keychain!".format(dfs.string_prefix))
+
+		if isinstance(_value,str):
+			if (_key == 0): # mode
+				for j in range(len(etkeys.mode)):
+					if _value in etkeys.mode[j]:
+						_value = int(np.where(np.asarray(etkeys.mode[j])==_value)[0])
+					else:
+						raise ValueError("{} Registrar reports value not in keychain!".format(dfs.string_prefix))
+'''
+
+
+
+
+
 
 
 def value_registrar(_obj):
@@ -50,8 +75,9 @@ def validate_args(kwargs):
 		elif isinstance(_value,list) or isinstance(_value,np.ndarray) or isinstance(_value,range):
 			if _key in etkeys.arguments[2]: # wavelength
 				if (_value[0] >= dfs.wavelength_limits[0]) and (_value[-1] <= dfs.wavelength_limits[1]):
-					validated_args = np.append(validated_args,_key)
-					validated_values = np.append(validated_values,np.array(_value))
+					valid_wavelength = np.array(_value)
+					#validated_args = np.append(validated_args,_key)
+					#validated_values = np.append(validated_values,[np.array(_value)])
 				else:
 					raise ValueError("{} Requested wavelength range exceeds calculable range ({}--{} nm)".format(dfs.string_prefix,dfs.wavelength_limits[0],dfs.wavelength_limits[1]))
 			else:
@@ -100,6 +126,10 @@ def validate_args(kwargs):
 				pass # ok nevermind then
 
 		elif isinstance(_value,str) or (_value == None): # catch all the rest
+			if _key in etkeys.arguments[4]: # object_type
+				for i in range(len(etkeys.object_type)):
+					_value = (i,np.where(np.asarray(etkeys.object_type[i])==_value))
+
 			for i in range(len(etkeys.arguments)):
 				if _key in etkeys.arguments[i]:
 					_key = etkeys.arguments[i][0]
@@ -121,14 +151,12 @@ def validate_args(kwargs):
 							raise ValueError("{} Invalid value: ({})".format(dfs.string_prefix,_value))
 		else:
 			raise ValueError("{} Invalid argument: ({})".format(dfs.string_prefix,_key))	
+	for i in range(len(validated_args)):
+		print(validated_args[i])
+	for j in range(len(validated_values)):
+		print(validated_values[j])
+	print("arg: {}\tval: {}".format(validated_args[i],validated_values[i])) # for debugging
 
-		# standardize values
-		if not (isinstance(_value,int) or isinstance(_value,float) or isinstance(_value,np.ndarray) or isinstance(_value,list) or isinstance(_value,range)):
-			for i,key_set in enumerate(etkeys.arguments):
-				for j,key in enumerate(validated_args):
-					if (key in key_set) and (key != key_set[0]):
-						validated_args[j] = etkeys.arguments[i][0]
-						print('{} changed to {}'.format(key,validated_args[j])) # debugging
 	# final lenegth check	
 	if (len(validated_args) != len(validated_values)):
 		print("{} : {}".format(validated_args,validated_values))
@@ -136,13 +164,15 @@ def validate_args(kwargs):
 	else:
 		for i in range(len(validated_args)):
 			print("arg: {}\tval: {}".format(validated_args[i],validated_values[i])) # for debugging
-		return dict(zip(validated_args,validated_values))
+		return dict(zip(validated_args,validated_values)), valid_wavelength
 
 
 def validate_points(x,y):
 	if (isinstance(x,np.ndarray) and isinstance(y,np.ndarray)) or (isinstance(np.asarray(x),np.ndarray) and isinstance(np.asarray(y),np.ndarray)):
-		if (x.shape[0] == x.shape[1]):
+		if (x.shape[0] == y.shape):
 			return x,y
+		elif (x.shape[0] == (y.shape[0] / 2)):
+			return x,y[0],y[1]
 		else:
 			raise ValueError("{} Plot columns must be equal in length. (x={},y={})".format(dfs.string_prefix,x.shape[0],y.shape[0]))
 	else:

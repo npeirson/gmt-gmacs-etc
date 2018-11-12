@@ -13,7 +13,7 @@ import paths as etpaths
 '''
 
 arguments = [['mode','type'],['num_mirrors','telescope_mode'],['wavelength','wavs'],['exposure_time','exp'],
-			['object_type','obj'],['filter_opt','filter'],['mag_sys','magnitude_system'],
+			['object_class','obj'],['filter_opt','filter'],['mag_sys','magnitude_system'],
 			['mag','magnitude'],['redshift','z'],['seeing','astronomical_seeing'],['slit_width','slit_size'],
 			['moon_days','new_moon'],['grating_opt','grating'],['readnoise','noise'],['bin_opt','binning'],
 			['channel','channels'],['sss','silent']]
@@ -32,5 +32,5 @@ bin_opt = [[1,2,3,4]]
 
 keychain = [mode,num_mirrors,object_type,filter_opt,mag_sys,moon_days,grating_opt,moon_days,grating_opt,bin_opt]
 
-stellar = np.concatenate(([filename[:-4] for filename in etpaths.stellar_files],[i for i in range(len(etpaths.stellar_files))]))
-galactic = np.concatenate((etpaths.galaxy_files,[(i+len(etpaths.stellar_files)) for i in range(len(etpaths.galaxy_files))]))
+stellar = [filename[:-4] for filename in etpaths.stellar_files]
+galactic = etpaths.galaxy_files

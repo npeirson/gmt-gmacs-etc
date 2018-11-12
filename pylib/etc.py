@@ -5,7 +5,7 @@
 import math
 import numpy as np
 
-import spectres as spectres
+from spectres import spectres
 from scipy import interpolate, integrate
 from astropy import constants # `const` not permitted in JS
 from astropy.convolution import convolve, convolve_fft
@@ -22,11 +22,18 @@ class calculate:
 	
 	def __init__(self,**kwargs):
 		# validate request
-		self.__dict__ = etools.validate_args(kwargs)
-		self.recalculate()
+		self.__dict__ = kwargs
+		self.wavelength = np.asarray(self.wavelength)
+		self.mag_sys_opt = self.mag_sys # fix this later
+		if self.telescope_mode == 'full':
+			self.num_mirrors = 7
+		else:
+			self.num_mirrors = 4
+		#self.__dict__,self.wavelength = etools.validate_args(kwargs)
+		self.update()
 
 		
-	def recalculate(self):
+	def update(self):
 		if (self.mode == 0):
 			plot_y = self.snr()
 		elif (self.mode == 1):
@@ -43,8 +50,15 @@ class calculate:
 			plot_y = self.atmo_ext()
 		else:
 			raise ValueError("{} Invalid calculator mode: ({})".format(dfs.string_prefix,self.mode))
+		if (self.mode == 6): # exception for atmo ext
+			values_y_blue = plot_y[0]
+			values_y_red = plot_y[1]
+		else:
+			#values_x,values_y_blue,values_y_red = etools.validate_points(self.wavelength,plot_y[0])
+			values_y_blue = plot_y[:int(len(plot_y)/2)]
+			values_y_red = plot_y[int(len(plot_y)/2):]
 
-		values_x,values_y = etools.validate_points(self.wavelength,plot_y)
+		self.values = [self.wavelength,values_y_blue,values_y_red]
 		
 
 	# mode functions
@@ -160,21 +174,21 @@ class calculate:
 		self.recalculalte_efficiency_noise()
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.noise_blue = np.multiply(self.counts_noise,self.total_eff_noise_blue)
-		if (channel == 'red') or (self.channel == 'both'):
+		if (self.channel == 'red') or (self.channel == 'both'):
 			self.noise_red = np.multiply(self.counts_noise,self.total_eff_noise_red)
 
 	def recalculate_counts(self):
+		self.recalculate_plot_step()
 		self.recalculate_flux()
-		self.change_telescope_mode()
-		self.change_plot_step()
+		self.change_num_mirrors()
 		self.power = self.flux_y * self.area * self.exposure_time * self.plot_step
 		self.counts = np.divide(np.divide(self.power,np.divide((constants.h.value * constants.c.value),self.wavelength)),1e10)
 
 	def recalculate_counts_noise(self):
+		self.recalculate_plot_step()
 		self.recalculate_sky_flux()
-		self.recalculate_extension()
-		self.change_telescope_mode()
-		self.change_plot_step()
+		self.recalculate_seeing()
+		self.change_num_mirrors()
 		self.counts_noise = np.multiply(np.multiply(self.sky_flux,self.extension),(self.area*self.exposure_time*self.plot_step))
 
 	def recalculate_percent(self):
@@ -186,7 +200,7 @@ class calculate:
 		self.recalculate_dichroic()
 		self.recalculate_ccd()
 		self.recalculate_atmospheric_extinction()
-		self.recalculate_mirror()
+		self.recalculate_mirror_loss()
 
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.total_eff_blue = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),np.multiply((self.ccd_blue * (dfs.coating_eff_blue * self.extinction)),np.square(self.mirror)))
@@ -197,18 +211,18 @@ class calculate:
 		self.recalculate_dichroic()
 		self.recalculate_grating()
 		self.recalculate_ccd()
-		self.recalculate_mirror()
+		self.recalculate_mirror_loss()
 		if (self.channel == 'blue') or (self.channel == 'both'):
 			self.total_eff_noise_red = np.multiply(np.multiply(self.dichro_blue,self.grating_blue),(self.ccd_blue * np.square(self.mirror) * dfs.coating_eff_blue))
 		if (self.channel == 'red') or (self.channel == 'both'):
 			self.total_eff_noise_blue = np.multiply(np.multiply(self.dichro_red,self.grating_red),(self.ccd_red * np.square(self.mirror) * dfs.coating_eff_red))
 
 	def recalculate_flux(self):
-		self.change_object_type()
+		self.recalculate_plot_step()
 		self.change_grating_opt()
-		self.change_filter()
 		self.change_moon_days()
-		self.change_plot_step()
+		self.change_filter()
+		self.change_object_type()
 
 		# heal identicalities
 		self.lambda_A[0] = self.lambda_A[0] + self.plot_step
@@ -223,19 +237,20 @@ class calculate:
 		
 		# valaidate flux
 		num_zeros = 0
-		for lux in flux:
+		for lux in self.flux:
 			if (lux is None) or (lux is 0):
 				num_zeros += 1
 				lux = 0
 
-		if (num_zeros >= (flux.shape[0]/5)):
-			if (num_zeros == flux.shape[0]):
+		if (num_zeros >= (self.flux.shape[0]/5)):
+			if (num_zeros == self.flux.shape[0]):
 				print('No flux in this bandpass!')
 				output_flux = np.zeros(self.wavelength.shape[0])
 			else:
-				percent_zeros = (num_zeros / flux.shape[0]) * 100
+				percent_zeros = (num_zeros / self.flux.shape[0]) * 100
 				print('{}% of this bandpass has zero flux'.format(percent_zeros))
 
+		self.change_mag_sys_opt()
 		del_mag = self.mag - self.mag_model
 		output_flux = np.multiply(self.object_y,10 ** np.negative(del_mag/2.5))
 		old_res = self.object_x[2] - self.object_x[1]
@@ -252,56 +267,56 @@ class calculate:
 
 	def change_grating_opt(self):
 		self.delta_lambda = dfs.dld[self.grating_opt] * self.slit_width / 0.7
-		_active = ['high' if (self.grating_opt==1) else 'low']
+		_active = 'high' if (self.grating_opt==1) else 'low'
 		if not self.sss:
-			print("{} Grating changed to {}".format(dfs.string_prefix,_active))
+			print("{} Grating changed to \'{} resolution\'".format(dfs.string_prefix,_active))
 
 	def change_mag_sys_opt(self):
-		if (self.mag_sys_opt == 'vega'):
+		if (self.mag_sys_opt == 'vega') or (self.mag_sys_opt ==0):
 			flux_vega = spectres(self.wavelength,dh.vega[0],dh.vega[1]) * 1e10 # fixed... I hope?
 			self.mag_model = -2.5 * np.log10(np.divide(math.fsum(self.flux * self._extinction * self._lambda * self.trans),math.fsum(self.flux_vega * self.trans * self._lambda * self._extinction))) + 0.03
-		elif (self.mag_sys_opt == 'ab'):
+		elif (self.mag_sys_opt == 'ab') or (self.mag_sys_opt ==1):
 			self.mag_model = -48.6 - 2.5 * np.log10(math.fsum(self.flux * self.trans * self._extinction * self._lambda) / math.fsum(self.trans * self._lambda * self._extinction * (constants.c.value/np.square(self._lambda))))
 		else:
 			raise ValueError("{} Invalid magnitude system option (mag_sys_opt): {}".format(dfs.string_prefix,self.mag_sys_opt))
 		if not self.sss:
-			print("{} Magnitude system changed to {}".format(dfs.string_prefix,self.mag_sys_opt.upper()))
+			print("{} Magnitude system changed to {}".format(dfs.string_prefix,np.asarray(etkeys.mag_sys).flatten()[self.mag_sys_opt]))
 
 	def change_object_type(self):
-		if self.object_type in etkeys.stellar:
-			index_of = [i for i,name in enumerate(etkeys.stellar) if self.object_type in name][0]
-			self.object_type = dh.starfiles[index_of]
-		elif self.object_type in etkeys.galactic:
-			index_of = [i for i,name in enumerate(etkeys.galactic) if self.object_type in name][0]
-			self.object_type = dh.galaxyfiles[index_of]
+		#self.object_type = dh.galaxyfiles[self.object_type[0]][self.object_type[1]]
+		if self.object_class in etkeys.stellar:
+			self.object_type = dh.starfiles[int(np.where(np.asarray(etkeys.stellar)==self.object_class)[0])]
+		elif self.object_class in etkeys.galactic:
+			self.object_type = dh.galaxyfiles[int(np.where(np.asarray(etkeys.stellar)==self.object_class)[0])]
 		else:
-			raise ValueError("{} Invalid object type: {}".format(dfs.string_prefix,self.object_type))
+			raise ValueError("{} Invalid object class: ({})".format(dfs.string_prefix,self.object_class))
 		self.object_x = self.object_type[0] * (1 + self.redshift)
 		self.object_y = self.object_type[1]
 		self.flux_A = spectres(self.lambda_A,self.object_x,self.object_y)
 		if not self.sss:
-			print("{} Object type changed to {}".format(dfs.string_prefix,self.object_type))
+			#print("{} Object type changed to {}".format(dfs.string_prefix,self.object_type))
+			pass
 
 	def change_moon_days(self):
-		if self.moon_days in etkeys.moon_days:
+		if self.moon_days in range(len(etkeys.moon_days)):
 			self.sky_background = dh.skyfiles[(int(np.where(np.asarray(etkeys.moon_days)==self.moon_days)[0]))]
 		else:
 			raise ValueError('{} Invalid number of days since new moon: {}'.format(dfs.string_prefix,self.moon_days))
-		self.recalculate_sky_flux(caller)
+		self.recalculate_sky_flux()
 		if not self.sss:
 			print("{} Days since new moon changed to {}".format(dfs.string_prefix,self.moon_days))
 
 	def change_num_mirrors(self):
-		if (self.num_mirrors == 0):
+		if (self.num_mirrors == 0) or (self.num_mirrors == 4):
 			self.area = dfs.area[0]
-		elif (self.num_mirrors == 1):
+		elif (self.num_mirrors == 1) or (self.num_mirrors == 7):
 			self.area = dfs.area[1]
 		else:
 			raise ValueError("{} Invalid telescope mode: ({})".format(dfs.string_prefix,self.num_mirrors))
 		if not self.sss:
 			print("{} Telescope mode changed to: {} m^2".format(dfs.string_prefix,self.area))
 
-	def change_filter_opt(self):
+	def change_filter(self):
 		self.selected_filter = dh.filterfiles[self.filter_opt]
 		filter_min = min(self.selected_filter[0])
 		filter_max = max(self.selected_filter[0])
@@ -311,16 +326,16 @@ class calculate:
 		self.recalculate_plot_step()
 		self.lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
 		if not self.sss:
-			_active = etpaths.filter_files[self.filter_index]
-			print("{} Filter changed to {} ({}--{} nm)".format(dfs.string_prefix,_active,self.selected_filter[0],self.selected_filter[-1]))
+			_active = etpaths.filter_files[self.filter_opt]
+			print("{} Filter changed to {} ({}--{} nm)".format(dfs.string_prefix,etkeys.filter_opt[0][self.filter_opt],self.selected_filter[0][0],self.selected_filter[0][-1]))
 
 	def recalculate_seeing(self):
 		_sigma = self.seeing / gaussian_sigma_to_fwhm
 		funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.multiply(np.square(_sigma),2))))
-		self.percent_u,self.percent_err_u = integrate.quad(funx,(-self.slit_size/2),(self.slit_size/2))
+		self.percent_u,self.percent_err_u = integrate.quad(funx,(-self.slit_width/2),(self.slit_width/2))
 		self.percent_l,self.percent_err_l = integrate.quad(funx,(-self.seeing/2),(self.seeing/2))
 		self.percent = self.percent_u * self.percent_l # can use error if you add it later...
-		self.extension = self.seeing * self.slit_size
+		self.extension = self.seeing * self.slit_width
 		if not self.sss:
 			print("{} Seeing changed to {}".format(dfs.string_prefix,self.seeing))
 
@@ -335,7 +350,7 @@ class calculate:
 		sky_y = convolve_fft(sky_y,degrade)
 		self.sky_flux = spectres(self.wavelength,sky_x,sky_y)
 
-	def recalculate_dichroic(self,caller):
+	def recalculate_dichroic(self):
 		if (self.channel is 'blue') or (self.channel is 'both'):
 			fblue_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y1, kind='cubic')
 			self.dichro_blue = fblue_dichro(self.wavelength)
