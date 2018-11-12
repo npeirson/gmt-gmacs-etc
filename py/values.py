@@ -48,15 +48,19 @@ filter_files = ['photonUX.dat','photonB.dat','photonV.dat','photonR.dat','photon
 
 ''' keychain '''
 # argument keys (probably not right, yet)
-keys = ['obj','atmo_ext','wavelength',
+keys = ['mode','obj','object_type','wavelength',
 		'filter_opt','magnitude','mag_sys_opt',
 		'grating_opt','redshift','exposure_time',
 		'seeing','slit_size','moon_days','plot_channel',
 		'telescope_mode','binx','sss']
 
 # passage keys, wavelength assumed
-stellar_keys = [filename[:-4] for filename in stellar_files]
-galactic_keys = galaxy_files
+mode_keys = np.asarray([[0,'snr','signal_noise',None],[1,'observed_spectrum','os','obv_spec'],
+						[2,'sky_background','sky_bg','obs_sky_bg'],[3,'dichroic','dichro','dichroic_throughput'],
+						[4,'grating','grating_throughput','gt'],[5,'ccd_qe','ccd','ccd_quantum_efficiency'],
+						[6,'atmo_ext','atmos_ext','atmospheric_extinction']])
+stellar_keys = np.concatenate(([filename[:-4] for filename in stellar_files],[i for i in range(len(stellar_files))]))
+galactic_keys = np.concatenate((galaxy_files,[(i+len(stellar_files)) for i in range(len(galaxy_files))]))
 filter_keys = [filename[:-4] for filename in filter_files]
 object_type_keys = np.concatenate((stellar_keys,galactic_keys))
 grating_opt_keys = ['low',0,1.4,'high',1,3.73]

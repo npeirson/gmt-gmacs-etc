@@ -127,7 +127,6 @@ gly_red = glyphs.Line(x="xr",y="yr",line_width=dfs.default_line_width,line_color
 p0.add_glyph(cds_blue,gly_blue)
 p0.add_glyph(cds_red,gly_red)
 
-carrier_ui = dict()
 cds_wavelength = ColumnDataSource(dict(x=[]))
 carrier_iv = ColumnDataSource(dict(data=[0,3600,4,3,1,25,0,0.5,0.5,0,0,False,edl.bin_options_int[edl.bin_options_default_index],'both',False]))
 carrier_sv = ColumnDataSource(dict()) # persistent variables
@@ -139,8 +138,8 @@ variables				type
 
 telescope_mode (sizes) 	int
 exposure_time 			float
-object_type 			int <---- requires attention
-filter_index 			int <---- might errors, widget_filter,, probably need to undo and undo the trickledown changes uhoh
+object_type 			int
+filter_index 			int
 mag_sys_opt 			int
 magnitude 				float
 redshift 				float
@@ -148,9 +147,8 @@ seeing 					float
 slit_size				float
 moon_day 				int
 grating_opt 			int
-noise 					bool
+withnoise				bool
 bin_option 				int
-channel 				str
 
 sss 					bool
 
@@ -162,7 +160,8 @@ percent_err_l 			float
 percent 				float
 extension 				float
 plot_step 				float
-
+channel 				str
+object_type_modifier	int
 
 extinction				col
 power					col
@@ -181,6 +180,7 @@ selected_filter 		col
 sky_flux 				col
 readnoise 				col
 mirror 					col
+sky_background 			col
 
 snr 					col,col
 signal 					col,col
@@ -365,9 +365,9 @@ def convertable_callback(initial_values=carrier_iv):
 
 
 		def recalculate_counts_noise(self,caller):
-			if (caller == 'moon_days'):
+			if (caller == widget_moon_days.name):
 				self.recalculate_sky_flux(caller)
-			if (caller == 'telescope_mode'):
+			if (caller == widget_telescope_sizes.name):
 				self.change_telescope_mode(caller)
 			if caller in edl.extension_keys:
 				self.recalculate_seeing(caller)
@@ -422,7 +422,7 @@ def convertable_callback(initial_values=carrier_iv):
 				self.change_grating_opt(caller)
 			if caller in edl.filter_keys:
 				self.change_filter(caller)
-			if (caller == 'object_type'):
+			if (caller == widget_object_types.name):
 				self.change_object_type(caller)
 			else: # callers prolly not necessary but good formality
 				self.recalculate_atmospheric_extinction(caller)

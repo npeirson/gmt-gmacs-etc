@@ -22,7 +22,7 @@ string_widget_names = ['telescope sizes','object types','galaxy types','magnitud
 						'wavelengths slider','plot types selector']
 string_suffixes = ['magnitude','seconds','arcseconds','Angstrom']
 string_telescope_sizes = ['Full size (7 mirrors)','First light (4 mirrors)']
-string_object_types = ['Stars','Galaxies']
+string_object_types = ['Stellar','Galactic']
 string_object_types_types = ['Stellar Classifications','Galactic Classifications']
 string_star_types = [('O5V','O5V'),('B0V','B0V'),('B5V','B5V'),('A0V','A0V'),('A5V','A5V'),('F0V','F0V'),('F5V','F5V'),
 	('G0V','G0V'),('G5V','G5V'),('K0V','K0V'),('K5V','K5V'),('M0V','M0V'),('M5V','M5V')]
@@ -45,7 +45,7 @@ string_grating_types  = ['Low resolution','High resolution']
 string_moon_days = ['0','3','7','10','14']
 string_binned_pixel_scale_modes = ['Default','Custom']
 string_calculate_types = ['Signal-to-Noise Ratio','Observed Spectrum (without noise)','Observed Spectrum (with noise)','Observed sky background','Dichroic throughput','Grating throughput','CCD QE','Atmospheric extinction']
-string_plot_types = ['Red','Blue']
+string_plot_types = ['Blue','Red']
 string_binned_pixel_scale_header = 'Binned pixel scale'
 string_binned_pixel_scale_labels = ['1x1','2x2','3x3','4x4']
 string_plot_step = 'Plot-Step'
