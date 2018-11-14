@@ -49,14 +49,14 @@ string_plot_types = ['Blue','Red']
 string_binned_pixel_scale_header = 'Binned pixel scale'
 string_binned_pixel_scale_labels = ['1x1','2x2','3x3','4x4']
 string_plot_step = 'Plot-Step'
-string_axis_labels = [('x','y'),
-						('x','y'),
-						('x','y'),
-						('x','y'),
-						('x','y'),
-						('x','y'),
-						('x','y'),
-						('Angstroms','Throughput')] # atmospheric extinction
+string_axis_labels = [('Wavelength [\u212b]','SNR px\u207b\u00b9'),
+						('Wavelength [\u212b]','Counts px\u207b\u00b9'),
+						('Wavelength [\u212b]','Counts px\u207b\u00b9'),
+						('Wavelength [\u212b]','Counts px\u207b\u00b9'),
+						('Wavelength [\u212b]','Throughput'),
+						('Wavelength [\u212b]','Throughput'),
+						('Wavelength [\u212b]','Quantum Efficiency'),
+						('Wavelength [\u212b]','Extinction')] # atmospheric extinction
 
 # widget defaults -- some refer to position in list, some are legit numbers
 default_telescope_sizes = string_telescope_sizes[0]
