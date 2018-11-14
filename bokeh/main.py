@@ -83,19 +83,32 @@ names = [widgets_coalesced[i].name[7:] for i in range(len(widgets_coalesced))]
 [val_pack.update({names[i]:widgets_coalesced[i]}) for i in range(widgets_coalesced.shape[0])] # comprehend this, yo
 sess = etslim.session(val_pack) # create an etc session object with initial values
 
-def update_bkh(caller):
+def update_bkh(caller,cds_blue=cds_blue,cds_red=cds_red):
     plot_x,plot_yb,plot_yr = sess.update(caller)
     if 0 in widget_channels.active:
         cds_blue.data['xb'] = plot_x
         cds_blue.data['yb'] = plot_yb
+        if 1 in widget_channels.active:
+            gly_red.visible = True
+        else:
+            gly_red.visible = False
     if 1 in widget_channels.active:
         cds_red.data['xr'] = plot_x
         cds_red.data['yr'] = plot_yr
+        if 0 in widget_channels.active:
+            gly_blue.visible = True
+        else:
+            gly_blue.visible = False
     else: # crashless catch-all
+        gly_blue.visible = True
+        gly_red.visible = True
         cds_blue.data['xb'] = plot_x
         cds_blue.data['yb'] = plot_yb
         cds_red.data['xr'] = plot_x
         cds_red.data['yr'] = plot_yr
+
+def enabler():
+    pass
 
 # link callbacks
 for i,widge in enumerate(widgets_with_values):

@@ -33,15 +33,17 @@ class session:
 		self.sss = True # False for verbose mode
 		self.wavelength_array = np.arange(self.wavelength.value[0],self.wavelength.value[1],dfs.plot_step)
 		self.time_last_command = time.time()
-		self.update(caller='init') # initialize
+		self.init()
+
+	def init(self):
+		return self.snr('init') # initialize
 
 		
 	def update(self,caller):
 		if (time.time() - self.time_last_command) >= 10:
 			self.time_last_command = time.time()			
 			print("{} Call from: {}".format(dfs.string_prefix,caller))
-			if (caller == 'init'):
-				return self.snr(caller)
+
 			if (self.tabs.active == 0):
 				return self.snr(caller)
 			elif (self.tabs.active == 1):
@@ -141,7 +143,7 @@ class session:
 		return noise_blue,noise_red
 
 	def recalculate_counts(self,caller):
-		plot_step = self.recalculate_plot_step(caller)
+		wavelength,plot_step = self.recalculate_wavelength(caller)
 		flux,flux_y = self.recalculate_flux(caller)
 		area = self.change_num_mirrors(caller)
 		power = flux_y * area * self.time.value * plot_step
@@ -149,7 +151,7 @@ class session:
 		return counts
 
 	def recalculate_counts_noise(self,caller):
-		plot_step = self.recalculate_plot_step(caller)
+		wavelength,plot_step = self.recalculate_wavelength(caller)
 		sky_flux = self.recalculate_sky_flux(caller)
 		percent,extension = self.recalculate_seeing(caller)
 		area = self.change_num_mirrors(caller)
@@ -176,11 +178,15 @@ class session:
 		return total_eff_noise_blue,total_eff_noise_red
 
 	def recalculate_flux(self,caller):
-		plot_step = self.recalculate_plot_step(caller)
+		wavelength,plot_step = self.recalculate_wavelength(caller)
 		grating_blue,grating_red = self.recalculate_grating(caller)
 		moon_days = self.change_moon_days(caller)
 		selected_filter_x,selected_filter_y,lambda_A = self.change_filter(caller)
 		object_x,object_y,flux_A = self.change_object_type(caller)
+
+		# heal identicalities
+		lambda_A[0] = lambda_A[0] + plot_step
+		lambda_A[-1] = lambda_A[-1] - plot_step
 
 		# recalculate some losses
 		ftrans = interpolate.interp1d(selected_filter_x,selected_filter_y, kind='cubic')
@@ -219,12 +225,9 @@ class session:
 		return flux,flux_y
 		
 	def recalculate_wavelength(self,caller):
-		self.wavelength_array = np.arange(self.wavelength.value[0],self.wavelength.value[1],dfs.plot_step)
-		self.recalculate_plot_step(caller)
-
-	def recalculate_plot_step(self,caller): # for a later implmentation
-		return (self.wavelength_array[2] - self.wavelength_array[1])
-
+		wavelength_array = np.arange(self.wavelength.value[0],self.wavelength.value[1],dfs.plot_step) # change plot step later if dynamic algorithm desired
+		plot_step = lambda ray: (ray[2] - ray[1])
+		return wavelength_array,plot_step(wavelength_array)
 
 	def change_grating_opt(self,caller):
 		delta_lambda = dfs.dld[self.grating.active] * self.slit.value / 0.7
@@ -273,7 +276,7 @@ class session:
 		filter_min = min(selected_filter[0])
 		filter_max = max(selected_filter[0])
 		lambda_min,lambda_max = filter_min,filter_max
-		plot_step = self.recalculate_plot_step(caller)
+		wavelength_array,plot_step = self.recalculate_wavelength(caller)
 		lambda_A = np.arange(lambda_min,lambda_max,plot_step)
 		if not self.sss:
 			_active = stc.filter_opts[curr_fil[1]]
