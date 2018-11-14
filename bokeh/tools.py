@@ -156,7 +156,7 @@ def validate_args(kwargs):
 	for j in range(len(validated_values)):
 		print(validated_values[j])
 	#print("arg: {}\tval: {}".format(validated_args[i],validated_values[i])) # for debugging
-	
+
 	# final lenegth check	
 	if (len(validated_args) != len(validated_values)):
 		#print("{} : {}".format(validated_args,validated_values))

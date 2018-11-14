@@ -4,6 +4,11 @@ util/__pycache__/
 py/data/
 py/__pycache__/
 _old_data/
+pylib/.ipnb_checkpoints/
+pylib/__pycache__/
+bokeh/.ipnb_checkpoints/
+bokeh/__pycache__/
+
 
 # Python files
 test3.py
