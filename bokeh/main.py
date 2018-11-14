@@ -89,19 +89,19 @@ def update_bkh(caller,cds_blue=cds_blue,cds_red=cds_red):
         cds_blue.data['xb'] = plot_x
         cds_blue.data['yb'] = plot_yb
         if 1 in widget_channels.active:
-            gly_red.visible = True
+            gly_red.line_alpha = True
         else:
-            gly_red.visible = False
+            gly_red.line_alpha = False
     if 1 in widget_channels.active:
         cds_red.data['xr'] = plot_x
         cds_red.data['yr'] = plot_yr
         if 0 in widget_channels.active:
-            gly_blue.visible = True
+            gly_blue.line_alpha = True
         else:
-            gly_blue.visible = False
+            gly_blue.line_alpha = False
     else: # crashless catch-all
-        gly_blue.visible = True
-        gly_red.visible = True
+        gly_blue.line_alpha = True
+        gly_red.line_alpha = True
         cds_blue.data['xb'] = plot_x
         cds_blue.data['yb'] = plot_yb
         cds_red.data['xr'] = plot_x
