@@ -40,7 +40,8 @@ class session:
 		if (time.time() - self.time_last_command) >= 10:
 			self.time_last_command = time.time()			
 			print("{} Call from: {}".format(dfs.string_prefix,caller))
-			
+			if (caller == 'init'):
+				return self.snr(caller)
 			if (self.tabs.active == 0):
 				return self.snr(caller)
 			elif (self.tabs.active == 1):

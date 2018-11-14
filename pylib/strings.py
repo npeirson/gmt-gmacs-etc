@@ -3,13 +3,14 @@
 import paths as etpaths
 
 # title, x, y
-plot_labels = [('Signal-to-Noise Ratio','Angstroms','Signal-to-noise ratio'),
-				('Observed Spectrum','Angstroms','Signal'),
-				('Sky Background','Angstroms','Noise'),
-				('x','y'),
-				('x','y'),
-				('x','y'),
-				('Atmospheric Extinction','Angstroms','Throughput')]
+plot_labels = [('Signal-to-Noise Ratio','Wavelength [\u212b]','SNR px\u207b\u00b9'),
+				('Observed Spectrum','Wavelength [\u212b]','Counts px\u207b\u00b9'),
+				('Observed Sky Background','Wavelength [\u212b]','Counts px\u207b\u00b9'),
+				('Dichroic Throughput','Wavelength [\u212b]','Throughput'),
+				('Grating Throughput','Wavelength [\u212b]','Throughput'),
+				('CCD Quantum Efficiency','Wavelength [\u212b]','Quantum Efficiency'),
+				('Atmospheric Extinction','Wavelength [\u212b]','Extinction')]
+				# took out one `('Wavelength [\u212b]','Counts px\u207b\u00b9'),`
 
 widget_headers = ["Telescope Mode", # 0
 					"Object Type", # 1
