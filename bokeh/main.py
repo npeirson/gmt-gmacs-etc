@@ -3,11 +3,11 @@ from os.path import dirname, join
 import numpy as np
 
 from bokeh.plotting import figure
-from bokeh.layouts import layout, widgetbox
+from bokeh.layouts import layout,widgetbox,column,row
 from bokeh.models import ColumnDataSource,glyphs
 from bokeh.io import curdoc
-from bokeh.models.widgets import Dropdown,RadioButtonGroup,CheckboxButtonGroup,Slider,RangeSlider,Tabs,Panel
-from bokeh.embed import components
+from bokeh.models.widgets import Dropdown,RadioButtonGroup,CheckboxButtonGroup,Slider,RangeSlider,Tabs,Panel,Div
+from bokeh.embed import components # for loading stuff, todo
 
 import slim as etslim # reduced python package for gui versions
 import strings as stc
@@ -33,6 +33,8 @@ widget_wavelength = RangeSlider(start=dfs.wavelength_limits[0], end=dfs.waveleng
     value=((dfs.wavelength_limits[0]+1400),(dfs.wavelength_limits[1]-1400)),step=(10),title=stc.widget_headers[14],name=stc.widget_names[14])
 widget_withnoise = RadioButtonGroup(labels=stc.noise_opts,active=1,name=stc.widget_names[15])
 widget_channels = CheckboxButtonGroup(labels=stc.channels, active=[0,1], name=stc.widget_names[16])
+
+widget_header = Div(text='<h1>'+stc.header1+'</h1><h3>'+stc.header2+'</h3>',width=500,height=70)
 
 # create figures
 p0 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
@@ -105,8 +107,13 @@ for i,widge in enumerate(widgets_with_active):
 
 sizing_mode = 'scale_both'
 
-inputs = widgetbox(*widgets_coalesced, sizing_mode=sizing_mode)
-l = layout([[inputs]], sizing_mode=sizing_mode)
+widget_group_one = widgetbox(children=[widget_telescope_size,widget_object_type,widget_star_type,widget_galaxy_type])
+widget_group_two = layout([[widget_mag],[widget_filter,widget_mag_sys]])
+widget_group_three = widgetbox(children=[widget_grating,widget_redshift,widget_time,widget_seeing,widget_slit,widget_moon,widget_wavelength,widget_binning,widget_channels])
+widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.toolbar_width)
+inputs = row(children=[widgets,widget_tabs],sizing_mode='scale_height')
+
+l = layout([[widget_header],[inputs]])
 
 #update()  # initial load of the data
 

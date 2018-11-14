@@ -45,7 +45,8 @@ star_types_tup = [(i,i) for i in star_types] # unless there's a need to distingu
 galaxy_types_tup = [(i,i) for i in galaxy_types]
 filters_tup = [(name[:-4],etpaths.filter_files[i]) for i,name in enumerate(etpaths.filter_files)]
 
-
+header1 = 'GMACS : Exposure Time Calculator'
+header2 = 'Munnerlyn Astronomical Instrumentation Lab'
 mag_sys_opts = ['Vega','AB']
 grating_opts = ['Low Resolution','High Resolution']
 filter_opts = [name[:-4] for name in etpaths.filter_files]
