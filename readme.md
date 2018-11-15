@@ -1,12 +1,6 @@
 # GMACS ETC
 
-py/uimerge.py is the focus right now. It looks I'm messing something up in the initialization process, it seems much more complicated than it should be, which means I'm probably past-due for a kip. I'll pick up again in the morning, and you're welcome to take a crack at it, if you'd like.  
-
-TODO:  
-- callback ligatures (e.g. `js_on_change('start',general_callback)`)  
-- fix initialization stuff (probably easier than sleep-dep me finds it)  
-- columnDataSource routing (I think this is done, not sure though...)  
-
+server version just needs toggle channel option to get the glyphs to initialize, and there are some bugs in various buttons and such. Also, the layout is pretty messy too, so it isn't just showing up poorly in your browser; it needs some changes. I think they're because I haven't moved over the script that manages what the dropdown menus display and such. That's what the (currently empty) `enabler` function is for.
 
 ```
 		Tabs:
