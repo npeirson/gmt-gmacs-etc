@@ -82,7 +82,7 @@ class session:
 		ccd_blue,ccd_red = self.recalculate_ccd(caller)
 		mirror_loss = self.recalculate_mirror_loss(caller)
 		extinction = self.recalculate_atmospheric_extinction(caller)
-		counts_noise = self.recalculate_counts_noise(caller,sky_y=moon_days,extension=extension,area=area)
+		counts_noise = self.recalculate_counts_noise(sky_y=moon_days,extension=extension,area=area)
 
 		total_eff_noise_blue,total_eff_noise_red = self.recalculate_efficiency_noise(dichro_blue=dichro_blue,dichro_red=dichro_red,grating_blue=grating_blue,grating_red=grating_red,ccd_blue=ccd_blue,ccd_red=ccd_red,mirror_loss=mirror_loss)
 		noise_blue,noise_red = self.recalculate_noise(counts_noise=counts_noise,total_eff_noise_blue=total_eff_noise_blue,total_eff_noise_red=total_eff_noise_red)
@@ -267,7 +267,7 @@ class session:
 
 			
 	def change_moon_days(self):
-		delta_lambda = self.change_grating_opt()
+		delta_lambda = self.change_grating_opt('init')
 		if not self.sss:
 			print("{} Days since/until new moon: {}".format(dfs.string_prefix,stc.moon_opts[self.moon.active]))
 		return self.recalculate_sky_flux(delta_lambda)
@@ -280,7 +280,7 @@ class session:
 
 	def change_filter(self,caller):
 		if (caller == 'init'):
-			curr_fil = int(np.where(np.asarray(etpaths.filter_files)==self.filter.default_value)[0])
+			curr_fil = 7
 		else:
 			curr_fil = int(np.where(np.asarray(etpaths.filter_files)==self.filter.value)[0])
 		if caller in etkeys.func_filter:
