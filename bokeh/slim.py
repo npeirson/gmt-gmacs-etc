@@ -25,7 +25,6 @@ class session:
 
 	def __init__(self,*args):
 		input_dict = dict()
-		print(range(len(args)))
 		for i in range(len(args)):
 			input_dict.update(args[i])
 		self.__dict__ = input_dict
@@ -36,43 +35,79 @@ class session:
 		self.init()
 
 	def init(self):
-		self.time_last_command = time.time()
 		return self.snr('init') # initialize
 
 		
 	def update(self,caller):
-		if ((time.time() - self.time_last_command) >= .01):
-			self.time_last_command = time.time()
-			print("{} Call from: {}".format(dfs.string_prefix,caller))
-
-			if (self.tabs.active == 0):
-				return self.snr(caller)
-			elif (self.tabs.active == 1):
-				return self.os(caller)
-			elif (self.tabs.active == 2):
-				return self.sky(caller)
-			elif (self.tabs.active == 3):
-				return self.dichro(caller)
-			elif (self.tabs.active == 4):
-				return self.gt(caller)
-			elif (self.tabs.active == 5):
-				return self.ccd(caller)
-			elif (self.tabs.active == 6):
-				return self.atmo_ext(caller)
-			else:
-				raise ValueError("{} Invalid update request!".format(dfs.string_prefix))
+		print("{} Call from: {}".format(dfs.string_prefix,caller))
+		if (self.tabs.active == 0):
+			return self.snr(caller)
+		elif (self.tabs.active == 1):
+			return self.os(caller)
+		elif (self.tabs.active == 2):
+			return self.sky(caller)
+		elif (self.tabs.active == 3):
+			return self.dichro(caller)
+		elif (self.tabs.active == 4):
+			return self.gt(caller)
+		elif (self.tabs.active == 5):
+			return self.ccd(caller)
+		elif (self.tabs.active == 6):
+			return self.atmo_ext(caller)
 		else:
-			if not self.sss:
-				print('{} Caught Buffer overflow!'.format(dfs.string_prefix))
+			raise ValueError("{} Invalid update request!".format(dfs.string_prefix))
 
 
-	''' mode functions '''
-	def snr(self,caller):	
+	'''
+		mode functions
+			- first collect needed values
+			- then do maths
+			this avoids unnecessary work
+
+	'''
+
+	def snr(self):
+		base_alt = self.recalculate_wavelength()
+		
+		read_noise = self.recalculate_readnoise()
+		counts_noise = self.recalculate_counts_noise()
+		area = self.change_num_mirrors()
+		selected_filter_x,selected_filter_y,lambda_A = self.change_filter()
+
+		moon_days = self.change_moon_days()
+		percent,extension = self.recalculate_seeing()
+		dichro_blue,dichro_red = self.recalculate_dichroic()
+		grating_blue,grating_red = self.recalculate_grating()
+		ccd_blue,ccd_red = self.recalculate_ccd()
+		mirror_loss = self.recalculate_mirror_loss()
+
+		total_eff_noise_blue,total_eff_noise_red = self.recalculate_efficiency_noise(dichro_blue=dichro_blue,dichro_red=dichro_red,grating_blue=grating_blue,grating_red=grating_red,ccd_blue=ccd_blue,ccd_red=ccd_red,mirror_loss=mirror_loss)
+		noise_blue,noise_red = self.recalculate_noise(counts_noise=counts_noise,total_eff_noise_blue=total_eff_noise_blue,total_eff_noise_red=total_eff_noise_red)
+
+		object_x,object_y,flux_A = self.change_object_type(selected_filter_x=selected_filter_x,selected_filter_y=selected_filter_y,lambda_A=lambda_A)
+		flux,flux_y = self.recalculate_flux(grating_blue=grating_blue,grating_red_grating_red,moon_days=moon_days,selected_filter_x=selected_filter_x,selected_filter_y=selected_filter_y,lambda_A=lambda_A,object_x=object_x,object_y=object_y,flux_A=flux_A)
+
+		counts = self.recalculate_counts(flux_y=flux_y,area=area)
+
+		total_eff_blue,total_eff_red = self.recalculate_efficiency(caller)
+
+		signal_blue,signal_red = self.recalculate_signal(counts=counts,percent=percent,total_eff_blue=total_eff_blue,total_eff_red=total_eff_red)
+
+		
+
+		
+
+
+
 		x = self.wavelength_array
 		yb,yr = self.calc_snr(caller)
 		return x,yb,yr
 
 	def os(self,caller):
+		read_noise = self.recalculate_readnoise(caller)
+		signal_blue,signal_red = self.recalculate_signal(caller)
+		noise_blue,noise_red = self.recalculate_noise(caller)
+
 		x = self.wavelength_array
 		signal_blue,signal_red = self.recalculate_signal(caller)
 		if self.withnoise.active:
@@ -82,7 +117,9 @@ class session:
 			yb,yr = signal_blue,signal_red
 		return x,yb,yr
 
-	def sky(self,caller):
+	def sky(self):
+		delta_lambda = self.change_grating_opt()
+		recalculate_sky_flux(delta_lambda=delta_lambda)
 		x = self.wavelength_array
 		yb,yr = self.calc_error(caller)
 		return x,yb,yr
@@ -109,7 +146,7 @@ class session:
 
 
 	def calc_snr(self,caller):
-		read_noise = self.recalculate_readnoise(caller)
+		read_noise = self.recalculate_readnoise()
 		signal_blue,signal_red = self.recalculate_signal(caller)
 		noise_blue,noise_red = self.recalculate_noise(caller)
 		snr_blue = np.divide(signal_blue,np.sqrt(signal_blue + noise_blue + np.square(read_noise)))
@@ -128,10 +165,7 @@ class session:
 		return error_blue,error_red
 
 
-	def recalculate_signal(self,caller):
-		counts = self.recalculate_counts(caller)
-		percent,extension = self.recalculate_seeing(caller)
-		total_eff_blue,total_eff_red = self.recalculate_efficiency(caller)
+	def recalculate_signal(self,counts,percent,total_eff_blue,total_eff_red):
 		signal_blue = np.multiply((counts * percent), total_eff_blue)
 		signal_red = np.multiply((counts * percent), total_eff_red)
 		return signal_blue,signal_red
@@ -143,10 +177,7 @@ class session:
 		noise_red = np.multiply(counts_noise,total_eff_noise_red)
 		return noise_blue,noise_red
 
-	def recalculate_counts(self,caller):
-		self.recalculate_wavelength(caller)
-		flux,flux_y = self.recalculate_flux(caller)
-		area = self.change_num_mirrors(caller)
+	def recalculate_counts(self,flux_y,area):
 		power = flux_y * area * self.time.value * self.plot_step
 		counts = np.divide(np.divide(power,np.divide((constants.h.value * constants.c.value),self.wavelength_array)),1e10)
 		return counts
@@ -169,26 +200,15 @@ class session:
 		total_eff_red = np.multiply(np.multiply(dichro_red,grating_red),np.multiply((ccd_red * (dfs.coating_eff_red * extinction)),np.square(mirror_loss)))
 		return total_eff_blue,total_eff_red
 
-	def recalculate_efficiency_noise(self,caller):
-		dichro_blue,dichro_red = self.recalculate_dichroic(caller)
-		grating_blue,grating_red = self.recalculate_grating(caller)
-		ccd_blue,ccd_red = self.recalculate_ccd(caller)
-		mirror_loss = self.recalculate_mirror_loss(caller)
+	def recalculate_efficiency_noise(self,dichro_blue,dichro_red,grating_blue,grating_red,ccd_blue,ccd_red,mirror_loss):
 		total_eff_noise_red = np.multiply(np.multiply(dichro_blue,grating_blue),(ccd_blue * np.square(mirror_loss) * dfs.coating_eff_blue))
 		total_eff_noise_blue = np.multiply(np.multiply(dichro_red,grating_red),(ccd_red * np.square(mirror_loss) * dfs.coating_eff_red))
 		return total_eff_noise_blue,total_eff_noise_red
 
-	def recalculate_flux(self,caller):
-		self.recalculate_wavelength(caller)
-		grating_blue,grating_red = self.recalculate_grating(caller)
-		moon_days = self.change_moon_days(caller)
-		selected_filter_x,selected_filter_y,lambda_A = self.change_filter(caller)
-		object_x,object_y,flux_A = self.change_object_type(caller)
-
+	def recalculate_flux(self,grating_blue,grating_red,moon_days,selected_filter_x,selected_filter_y,lambda_A,object_x,object_y,flux_A):
 		# heal identicalities
 		lambda_A[0] = lambda_A[0] + self.plot_step
 		lambda_A[-1] = lambda_A[-1] - self.plot_step
-
 		# recalculate some losses
 		ftrans = interpolate.interp1d(selected_filter_x,selected_filter_y, kind='cubic')
 		trans = ftrans(lambda_A)
@@ -225,26 +245,26 @@ class session:
 			flux_y = spectres(self.wavelength_array,object_x,(output_flux*1e-03))
 		return flux,flux_y
 		
-	def recalculate_wavelength(self,caller):
-		if (caller == 'init') or (caller == 'wavelength'):
+	def recalculate_wavelength(self):
+		if (self.wavelength_array[0] == self.wavelength.value[0]) and (self.wavelength_array[-1] == self.wavelength.value[1]):
+			return False
+		else:
 			self.wavelength_array = np.arange(self.wavelength.value[0],self.wavelength.value[1],dfs.plot_step) # change plot step later if dynamic algorithm desired
 			self.plot_step = self.wavelength_array[2] - self.wavelength_array[1]
-		else:
-			print('arg')
+			return True
 
-	def change_grating_opt(self,caller):
+	def change_grating_opt(self):
 		delta_lambda = dfs.dld[self.grating.active] * self.slit.value / 0.7
 		if not self.sss:
 			print("{} Grating: \'{} resolution\'".format(dfs.string_prefix,'high' if (self.grating.active==1) else 'low'))
 		return delta_lambda
 
-	def change_object_type(self,caller):
+	def change_object_type(self,selected_filter_x,selected_filter_y,lambda_A):
 		if (self.star_type.value == None):
 			curr_star,curr_gal = 4,0
 		else:
 			curr_star = int(np.where(np.asarray(stc.star_types)==self.star_type.value)[0])
 			curr_gal = int(np.where(np.asarray(stc.galaxy_types)==self.galaxy_type.value)[0])
-		selected_filter_x,selected_filter_y,lambda_A = self.change_filter(caller)
 		if (self.object_type.active == 0): # stellar classifications
 			object_data = dh.starfiles[curr_star]
 		elif (self.object_type.active == 1):
@@ -258,18 +278,18 @@ class session:
 			print("{} Object type: {}".format(dfs.string_prefix,stc.object_types[self.object_type.active]))
 		return object_x,object_y,flux_A
 			
-	def change_moon_days(self,caller):
+	def change_moon_days(self):
 		if not self.sss:
 			print("{} Days since/until new moon: {}".format(dfs.string_prefix,stc.moon_opts[self.moon.active]))
 		return self.recalculate_sky_flux(caller)
 
-	def change_num_mirrors(self,caller):
+	def change_num_mirrors(self):
 		if (self.telescope.active == 0):
 			return dfs.area[0]
 		else:
 			return dfs.area[1]
 
-	def change_filter(self,caller):
+	def change_filter(self):
 		if (self.filter.value == None):
 			curr_fil = 7
 		else:
@@ -278,7 +298,6 @@ class session:
 		filter_min = min(selected_filter[0])
 		filter_max = max(selected_filter[0])
 		lambda_min,lambda_max = filter_min,filter_max
-		self.recalculate_wavelength(caller)
 		lambda_A = np.arange(lambda_min,lambda_max,self.plot_step)
 		if not self.sss:
 			_active = stc.filter_opts[curr_fil[1]]
@@ -286,7 +305,7 @@ class session:
 		return selected_filter[0],selected_filter[1],lambda_A
 
 
-	def recalculate_seeing(self,caller):
+	def recalculate_seeing(self):
 		_sigma = self.seeing.value / gaussian_sigma_to_fwhm
 		funx = lambda x: (1/(_sigma*np.sqrt(2*math.pi)))*np.exp(np.divide(np.negative(np.square(x)),(np.multiply(np.square(_sigma),2))))
 		percent_u,percent_err_u = integrate.quad(funx,(-self.slit.value/2),(self.slit.value/2))
@@ -295,9 +314,7 @@ class session:
 		extension = self.seeing.value * self.slit.value
 		return percent,extension
 
-	def recalculate_sky_flux(self,caller):		
-		self.recalculate_wavelength(caller)
-		delta_lambda = self.change_grating_opt(caller)
+	def recalculate_sky_flux(self,delta_lambda):
 		sky_x = dh.skyfiles[self.moon.active][0] * 1e4
 		sky_y = dh.skyfiles[self.moon.active][1] / 1e4
 		old_res = sky_x[2] - sky_x[1]
@@ -308,30 +325,26 @@ class session:
 		sky_y = convolve_fft(sky_y,degrade)
 		return spectres(self.wavelength_array,sky_x,sky_y)
 
-	def recalculate_dichroic(self,caller):
-		self.recalculate_wavelength(caller)
+	def recalculate_dichroic(self):
 		fblue_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y1, kind='cubic')
 		fred_dichro = interpolate.interp1d(dh.dichroic_x,dh.dichroic_y2, kind='cubic')
 		return fblue_dichro(self.wavelength_array),fred_dichro(self.wavelength_array)
 
-	def recalculate_grating(self,caller):
-		self.recalculate_wavelength(caller)
+	def recalculate_grating(self):
 		grating_blue = spectres(self.wavelength_array,(dh.grating1[0]*10),dh.grating1[1])
 		grating_red = spectres(self.wavelength_array,(dh.grating2[0]*10),dh.grating2[1])
 		return grating_blue,grating_red
 
-	def recalculate_ccd(self,caller):
-		self.recalculate_wavelength(caller)
+	def recalculate_ccd(self):
 		fblue_ccd = interpolate.interp1d((dh.ccd1[0]*10),dh.ccd1[1], kind='cubic')
 		fred_ccd = interpolate.interp1d((dh.ccd2[0]*10),dh.ccd2[1], kind='cubic')
 		return fblue_ccd(self.wavelength_array),fred_ccd(self.wavelength_array)
 
-	def recalculate_mirror_loss(self,caller):
-		self.recalculate_wavelength(caller)
+	def recalculate_mirror_loss(self):
 		fmirror = interpolate.interp1d(dh.mirror_file_x,dh.mirror_file_y, kind='cubic')
 		return fmirror(self.wavelength_array)
 
-	def recalculate_readnoise(self,caller): # probably not implemented in all necessary places yet...
+	def recalculate_readnoise(self): # probably not implemented in all necessary places yet...
 		spectral_resolution = math.ceil((self.slit.value/(0.7/12))/2)*2 # px (ceil()/2)*2 to round up to next even integer
 		spatial_resolution = math.ceil((self.seeing.value/(0.7/12))/2)*2 # probably have to find another method, because pscript is depriciating :(
 		extent = self.seeing.value * self.slit.value
@@ -343,6 +356,6 @@ class session:
 			print('{0} Extent: {1} arcsec^2\n{0} num pixels/resel: {2} px\n{0} spectral resolution: {3} px\n{0} spatial resolution: {4} px'.format(dfs.string_prefix,extent,int(math.ceil(npix)),spectral_resolution,spatial_resolution))
 		return read_noise
 
-	def recalculate_atmospheric_extinction(self,caller):
+	def recalculate_atmospheric_extinction(self):
 		extinction = spectres(self.wavelength_array,dh.atmo_ext_x,dh.atmo_ext_y)
 		return extinction

@@ -36,6 +36,12 @@ widget_channels = CheckboxButtonGroup(labels=stc.channels, active=[0,1], name=st
 
 widget_header = Div(text='<h1>'+stc.header1+'</h1><h3>'+stc.header2+'</h3>',width=500,height=70)
 
+# create glyphs and their sources
+cds_blue = ColumnDataSource(data=dict(xb=[],yb=[]))
+cds_red = ColumnDataSource(data=dict(xr=[], yr=[]))
+gly_blue = glyphs.Line(x='xb',y='yb',line_color='blue')
+gly_red = glyphs.Line(x='xr',y='yr',line_color='red')
+
 # create figures
 p0 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
             x_axis_label=stc.plot_labels[0][0],y_axis_label=stc.plot_labels[0][1])
@@ -51,7 +57,12 @@ p5 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mod
             x_axis_label=stc.plot_labels[5][0],y_axis_label=stc.plot_labels[5][1])
 p6 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
             x_axis_label=stc.plot_labels[6][0],y_axis_label=stc.plot_labels[6][1])
-figures = [p0,p1,p2,p3,p4,p5,p6] # group figures
+
+# group figures
+figures = [p0,p1,p2,p3,p4,p5,p6]
+for p in figures:
+    p.add_glyph(cds_blue,gly_blue)
+    p.add_glyph(cds_red,gly_red)
 
 # create figure tabs
 tab0 = Panel(child=p0,title=stc.plot_labels[0][0])
@@ -70,37 +81,25 @@ widgets_with_values = [widget_star_type,widget_galaxy_type,widget_filter,widget_
                         widget_redshift,widget_seeing,widget_slit,widget_time]
 widgets_coalesced = np.append(np.append(np.append(widgets_with_active,widgets_with_values),widget_wavelength),widget_tabs)
 
-# create glyphs and their sources
-cds_blue = ColumnDataSource(data=dict(xb=[],yb=[]))
-cds_red = ColumnDataSource(data=dict(xr=[], yr=[]))
-gly_blue = glyphs.Line(x='xb',y='yb',line_color='blue')
-gly_red = glyphs.Line(x='xr',y='yr',line_color='red')
-for p in figures:
-    p.add_glyph(cds_blue,gly_blue)
-    p.add_glyph(cds_red,gly_red)
+# package values for easy passage
 val_pack = dict()
 names = [widgets_coalesced[i].name[7:] for i in range(len(widgets_coalesced))]
 [val_pack.update({names[i]:widgets_coalesced[i]}) for i in range(widgets_coalesced.shape[0])] # comprehend this, yo
 sess = etslim.session(val_pack) # create an etc session object with initial values
 
-def update_bkh(caller,cds_blue=cds_blue,cds_red=cds_red):
+def update_bkh(caller):
     plot_x,plot_yb,plot_yr = sess.update(caller)
-    if 0 in widget_channels.active:
+    if (widget_channels.active==[0]):
         cds_blue.data['xb'] = plot_x
         cds_blue.data['yb'] = plot_yb
-        if 1 in widget_channels.active:
-            gly_red.line_alpha = 0.5
-        else:
-            gly_red.line_alpha = 0.
-    if 1 in widget_channels.active:
+        gly_blue.line_alpha = 0.5
+        gly_red.line_alpha = 0.
+    elif (widget_channels.active==[1]):
         cds_red.data['xr'] = plot_x
         cds_red.data['yr'] = plot_yr
-        if 0 in widget_channels.active:
-            gly_blue.line_alpha = 0.5
-        else:
-            gly_blue.line_alpha = 0.
+        gly_blue.line_alpha = 0.
+        gly_red.line_alpha = 0.5
     else: # crashless catch-all
-        print('none active?')
         gly_blue.line_alpha = 0.5
         gly_red.line_alpha = 0.5
         widget_channels.active = [0,1]
@@ -120,13 +119,11 @@ for i,widge in enumerate(widgets_with_active):
     print(names[i])
     widge.on_change('active', lambda attr, old, new: update_bkh(names[i]))
 
-sizing_mode = 'fixed'
-
 widget_group_one = widgetbox(children=[widget_telescope_size,widget_object_type,widget_star_type,widget_galaxy_type])
 widget_group_two = layout([[widget_mag],[widget_filter,widget_mag_sys]])
 widget_group_three = widgetbox(children=[widget_grating,widget_redshift,widget_time,widget_seeing,widget_slit,widget_moon,widget_wavelength,widget_binning,widget_channels])
 widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.toolbar_width)
-inputs = row(children=[widgets,widget_tabs],sizing_mode=dfs.plot_sizing_mode)
+inputs = row(children=[widgets,widget_tabs],sizing_mode='scale_height')
 
 l = layout([[widget_header],[inputs]])
 

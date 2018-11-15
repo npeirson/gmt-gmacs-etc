@@ -12,7 +12,7 @@ string_prefix = '[ ETC ] :'
 
 ''' plot params '''
 plot_dims = (1380,700)
-plot_sizing_mode = 'scale_width'
+plot_sizing_mode = 'fixed'
 plot_step = 20 # nm
 
 toolbar_width = 500 # px
