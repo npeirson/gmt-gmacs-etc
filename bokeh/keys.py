@@ -34,6 +34,14 @@ valid_widgets = [name[7:] for name in stc.widget_names]
 
 
 ''' keychain '''
+func_grating = ['grating','slit','init']
+func_filter = ['filter','init'] # add plot_step if it's made dynamic
+func_dichro = ['wavelength','init']
+func_grating = ['wavelength','init']
+func_ccd = ['wavelength','init']
+func_mirror_loss = ['wavelength','init']
+func_readnoise = ['slit','binning','seeing','wavelength','init']
+func_atmo_ext = ['wavelength','init']
 
 args_power = ['flux','area','time']
 args_counts = np.concatenate((args_power,['wavelength']),axis=0)

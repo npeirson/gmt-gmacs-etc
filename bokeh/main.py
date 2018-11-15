@@ -123,7 +123,7 @@ widget_group_one = widgetbox(children=[widget_telescope_size,widget_object_type,
 widget_group_two = layout([[widget_mag],[widget_filter,widget_mag_sys]])
 widget_group_three = widgetbox(children=[widget_grating,widget_redshift,widget_time,widget_seeing,widget_slit,widget_moon,widget_wavelength,widget_binning,widget_channels])
 widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.toolbar_width)
-inputs = row(children=[widgets,widget_tabs],sizing_mode='scale_height')
+inputs = row(children=[widgets,widget_tabs],sizing_mode='scale_width')
 
 l = layout([[widget_header],[inputs]])
 
