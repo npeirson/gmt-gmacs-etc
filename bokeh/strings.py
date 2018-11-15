@@ -39,12 +39,6 @@ widget_names = ['widget_telescope','widget_object_type','widget_star_type',
 telescope_sizes = ["First light","Full Size"]
 object_types = ["Stellar","Galactic"]
 
-star_types = [name[:-4] for name in etpaths.stellar_files]
-galaxy_types = etpaths.galaxy_files # these files lack suffixes
-star_types_tup = [(i,i) for i in star_types] # unless there's a need to distinguish...
-galaxy_types_tup = [(i,i) for i in galaxy_types]
-filters_tup = [(name[:-4],etpaths.filter_files[i]) for i,name in enumerate(etpaths.filter_files)]
-
 header1 = 'GMACS : Exposure Time Calculator'
 header2 = 'Munnerlyn Astronomical Instrumentation Lab'
 mag_sys_opts = ['Vega','AB']
@@ -54,4 +48,10 @@ moon_opts = ['0','3','7','10','14']
 bin_opts = ['1x1','2x2','3x3','4x4']
 noise_opts = ['Off','On']
 channels = ['Blue','Red']
+
+star_types = [name[:-4] for name in etpaths.stellar_files]
+galaxy_types = etpaths.galaxy_files # these files lack suffixes
+star_types_tup = [(i,i) for i in star_types] # unless there's a need to distinguish...
+galaxy_types_tup = [(i,i) for i in galaxy_types]
+filters_tup = [(filter_opts[i],etpaths.filter_files[i]) for i in range(len(filter_opts))]
 

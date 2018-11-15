@@ -89,19 +89,21 @@ def update_bkh(caller,cds_blue=cds_blue,cds_red=cds_red):
         cds_blue.data['xb'] = plot_x
         cds_blue.data['yb'] = plot_yb
         if 1 in widget_channels.active:
-            gly_red.line_alpha = True
+            gly_red.line_alpha = 0.5
         else:
-            gly_red.line_alpha = False
+            gly_red.line_alpha = 0.
     if 1 in widget_channels.active:
         cds_red.data['xr'] = plot_x
         cds_red.data['yr'] = plot_yr
         if 0 in widget_channels.active:
-            gly_blue.line_alpha = True
+            gly_blue.line_alpha = 0.5
         else:
-            gly_blue.line_alpha = False
+            gly_blue.line_alpha = 0.
     else: # crashless catch-all
-        gly_blue.line_alpha = True
-        gly_red.line_alpha = True
+        print('none active?')
+        gly_blue.line_alpha = 0.5
+        gly_red.line_alpha = 0.5
+        widget_channels.active = [0,1]
         cds_blue.data['xb'] = plot_x
         cds_blue.data['yb'] = plot_yb
         cds_red.data['xr'] = plot_x
@@ -118,13 +120,13 @@ for i,widge in enumerate(widgets_with_active):
     print(names[i])
     widge.on_change('active', lambda attr, old, new: update_bkh(names[i]))
 
-sizing_mode = 'scale_both'
+sizing_mode = 'fixed'
 
 widget_group_one = widgetbox(children=[widget_telescope_size,widget_object_type,widget_star_type,widget_galaxy_type])
 widget_group_two = layout([[widget_mag],[widget_filter,widget_mag_sys]])
 widget_group_three = widgetbox(children=[widget_grating,widget_redshift,widget_time,widget_seeing,widget_slit,widget_moon,widget_wavelength,widget_binning,widget_channels])
 widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.toolbar_width)
-inputs = row(children=[widgets,widget_tabs],sizing_mode='scale_height')
+inputs = row(children=[widgets,widget_tabs],sizing_mode=dfs.plot_sizing_mode)
 
 l = layout([[widget_header],[inputs]])
 
