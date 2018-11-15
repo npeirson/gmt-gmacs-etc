@@ -30,6 +30,7 @@ class session:
 		self.__dict__ = input_dict
 		self.sss = True # False for verbose mode
 		self.wavelength_array = np.arange(self.wavelength.value[0],self.wavelength.value[1],dfs.plot_step)
+		self.plot_step = self.wavelength_array[2] - self.wavelength_array[1]
 		self.recalculate_wavelength()
 		# initialize columndatasources
 		self.init()
@@ -242,12 +243,12 @@ class session:
 		if (self.star_type.value == None):
 			curr_star,curr_gal = 4,0
 		else:
-			curr_star = int(np.where(np.asarray(stc.star_types)==self.star_type.value)[0])
-			curr_gal = int(np.where(np.asarray(stc.galaxy_types)==self.galaxy_type.value)[0])
+			curr_star = np.where(np.asarray(stc.star_types)==self.star_type.value)[0][0]
+			curr_gal = np.where(np.asarray(stc.galaxy_types)==self.galaxy_type.value)[0][0]
 		if (self.object_type.active == 0): # stellar classifications
 			object_data = dh.starfiles[curr_star]
 		elif (self.object_type.active == 1):
-			object_data = dh.starfiles[curr_gal]
+			object_data = dh.galaxyfiles[curr_gal]
 		else:
 			raise ValueError("{} Invalid object class: ({})".format(dfs.string_prefix,stc.object_types[self.object_type.active]))
 		object_x = object_data[0] * (1 + self.redshift.value)
@@ -282,7 +283,7 @@ class session:
 		if (caller == 'init'):
 			curr_fil = 7
 		else:
-			curr_fil = int(np.where(np.asarray(etpaths.filter_files)==self.filter.value)[0])
+			curr_fil = np.where(np.asarray(etpaths.filter_files)==self.filter.value)[0]
 		if caller in etkeys.func_filter:
 			selected_filter = dh.filterfiles[curr_fil]
 			filter_min = min(selected_filter[0])
