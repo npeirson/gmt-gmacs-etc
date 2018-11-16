@@ -44,19 +44,19 @@ gly_red = glyphs.Line(x='xr',y='yr',line_color='red')
 
 # create figures
 p0 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
-            x_axis_label=stc.plot_labels[0][0],y_axis_label=stc.plot_labels[0][1])
+            x_axis_label=stc.plot_labels[0][1],y_axis_label=stc.plot_labels[0][2])
 p1 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
-            x_axis_label=stc.plot_labels[1][0],y_axis_label=stc.plot_labels[1][1])
+            x_axis_label=stc.plot_labels[1][1],y_axis_label=stc.plot_labels[1][2])
 p2 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
-            x_axis_label=stc.plot_labels[2][0],y_axis_label=stc.plot_labels[2][1])
+            x_axis_label=stc.plot_labels[2][1],y_axis_label=stc.plot_labels[2][2])
 p3 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
-            x_axis_label=stc.plot_labels[3][0],y_axis_label=stc.plot_labels[3][1])
+            x_axis_label=stc.plot_labels[3][1],y_axis_label=stc.plot_labels[3][2])
 p4 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
-            x_axis_label=stc.plot_labels[4][0],y_axis_label=stc.plot_labels[4][1])
+            x_axis_label=stc.plot_labels[4][1],y_axis_label=stc.plot_labels[4][2])
 p5 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
-            x_axis_label=stc.plot_labels[5][0],y_axis_label=stc.plot_labels[5][1])
+            x_axis_label=stc.plot_labels[5][1],y_axis_label=stc.plot_labels[5][2])
 p6 = figure(plot_width=dfs.plot_dims[0], plot_height=dfs.plot_dims[1],sizing_mode=dfs.plot_sizing_mode,
-            x_axis_label=stc.plot_labels[6][0],y_axis_label=stc.plot_labels[6][1])
+            x_axis_label=stc.plot_labels[6][1],y_axis_label=stc.plot_labels[6][2])
 
 # group figures
 figures = [p0,p1,p2,p3,p4,p5,p6]
@@ -121,7 +121,7 @@ for i,widge in enumerate(widgets_with_active):
 
 widget_group_one = widgetbox(children=[widget_telescope_size,widget_object_type,widget_star_type,widget_galaxy_type])
 widget_group_two = layout([[widget_mag],[widget_filter,widget_mag_sys]])
-widget_group_three = widgetbox(children=[widget_grating,widget_redshift,widget_time,widget_seeing,widget_slit,widget_moon,widget_wavelength,widget_binning,widget_channels],sizing_mode='fixed')
+widget_group_three = widgetbox(children=[widget_grating,widget_redshift,widget_time,widget_seeing,widget_slit,widget_moon,widget_wavelength,widget_binning,widget_channels],sizing_mode=dfs.plot_sizing_mode)
 widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.toolbar_width)
 inputs = row(children=[widgets,widget_tabs])
 
