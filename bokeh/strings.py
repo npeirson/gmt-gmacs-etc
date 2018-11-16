@@ -57,7 +57,7 @@ grating_opts = ['Low Resolution','High Resolution']
 filter_opts = [name[:-4] for name in etpaths.filter_files]
 moon_opts = ['0','3','7','10','14']
 bin_opts = ['1x1','2x2','3x3','4x4']
-noise_opts = ['Off','On']
+noise_opts = ['With Noise','Without Noise']
 channels = ['Blue','Red']
 
 star_types = [name[:-4] for name in etpaths.stellar_files]
