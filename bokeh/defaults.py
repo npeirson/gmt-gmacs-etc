@@ -11,7 +11,7 @@ string_prefix = '[ ETC ] :'
 
 
 ''' plot params '''
-plot_dims = (1280,700)
+plot_dims = (1080,720)
 #plot_dims = (1380,700)
 plot_sizing_mode = 'fixed'
 plot_step = 20 # nm
