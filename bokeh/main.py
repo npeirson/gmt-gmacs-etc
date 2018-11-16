@@ -6,7 +6,7 @@ from bokeh.plotting import figure
 from bokeh.layouts import layout,widgetbox,column,row
 from bokeh.models import ColumnDataSource,glyphs
 from bokeh.io import curdoc
-from bokeh.models.widgets import Dropdown,RadioButtonGroup,CheckboxButtonGroup,Slider,RangeSlider,Tabs,Panel,Div
+from bokeh.models.widgets import Dropdown,RadioButtonGroup,CheckboxButtonGroup,Slider,RangeSlider,Tabs,Panel,Div,Toggle
 from bokeh.embed import components # for loading stuff, todo
 
 import slim as etslim # reduced python package for gui versions
@@ -20,18 +20,18 @@ widget_object_type = RadioButtonGroup(labels=stc.object_types,active=0,name=stc.
 widget_star_type = Dropdown(default_value=stc.star_types_tup[4][0],label=stc.widget_headers[2],menu=stc.star_types_tup,name=stc.widget_names[2])
 widget_galaxy_type = Dropdown(default_value=stc.galaxy_types_tup[0][0],label=stc.widget_headers[3],menu=stc.galaxy_types_tup,name=stc.widget_names[3])
 widget_mag_sys = RadioButtonGroup(labels=stc.mag_sys_opts,active=1,name=stc.widget_names[4])
-widget_mag = Slider(start=(-27),end=(32),value=(25),step=(0.1),title=stc.widget_headers[5],name=stc.widget_names[5])
+widget_mag = Slider(start=(0),end=(30),value=(25),step=(0.1),title=stc.widget_headers[5],name=stc.widget_names[5])
 widget_filter = Dropdown(default_value=stc.filters_tup[7][0],label=stc.widget_headers[6],menu=stc.filters_tup,name=stc.widget_names[6])
 widget_grating = RadioButtonGroup(labels=stc.grating_opts,active=0,name=stc.widget_names[7])
 widget_moon = RadioButtonGroup(labels=stc.moon_opts,active=0,name=stc.widget_names[8])
 widget_binning = RadioButtonGroup(labels=stc.bin_opts,active=1,name=stc.widget_names[9])
-widget_redshift = Slider(start=(0),end=(13.37),value=(0),step=(0.01),title=stc.widget_headers[10],name=stc.widget_names[10])
-widget_seeing = Slider(start=(0),end=(20),value=(0.5),step=(0.1),title=stc.widget_headers[11],name=stc.widget_names[11])
-widget_slit = Slider(start=(0),end=(10),value=(0.5),step=(0.05),title=stc.widget_headers[12],name=stc.widget_names[12])
+widget_redshift = Slider(start=(0),end=(15),value=(0),step=(0.01),title=stc.widget_headers[10],name=stc.widget_names[10])
+widget_seeing = Slider(start=(0.25),end=(2.0),value=(0.65),step=(0.1),title=stc.widget_headers[11],name=stc.widget_names[11])
+widget_slit = Slider(start=(0.25),end=(2.0),value=(0.7),step=(0.05),title=stc.widget_headers[12],name=stc.widget_names[12])
 widget_time = Slider(start=(0),end=(21600),value=(2600),step=(10),title=stc.widget_headers[13],name=stc.widget_names[13])
 widget_wavelength = RangeSlider(start=dfs.wavelength_limits[0], end=dfs.wavelength_limits[1],
-    value=((dfs.wavelength_limits[0]+1400),(dfs.wavelength_limits[1]-1400)),step=(10),title=stc.widget_headers[14],name=stc.widget_names[14])
-widget_withnoise = RadioButtonGroup(labels=stc.noise_opts,active=1,name=stc.widget_names[15])
+    value=((dfs.wavelength_limits[0]),(dfs.wavelength_limits[1])),step=(10),title=stc.widget_headers[14],name=stc.widget_names[14])
+widget_withnoise = RadioButtonGroup(labels=stc.noise_opts,active=1,name=stc.widget_names[15]) #Toggle(label=stc.widget_names[15], button_type='success')
 widget_channels = CheckboxButtonGroup(labels=stc.channels, active=[0,1], name=stc.widget_names[16])
 
 widget_header = Div(text='<h1>'+stc.header1+'</h1><h3>'+stc.header2+'</h3>',width=500,height=70)
@@ -121,7 +121,7 @@ for i,widge in enumerate(widgets_with_active):
 
 widget_group_one = widgetbox(children=[widget_telescope_size,widget_object_type,widget_star_type,widget_galaxy_type])
 widget_group_two = layout([[widget_mag],[widget_filter,widget_mag_sys]])
-widget_group_three = widgetbox(children=[widget_grating,widget_redshift,widget_time,widget_seeing,widget_slit,widget_moon,widget_wavelength,widget_binning,widget_channels],sizing_mode=dfs.plot_sizing_mode)
+widget_group_three = widgetbox(children=[widget_grating,widget_redshift,widget_time,widget_seeing,widget_slit,widget_moon,widget_wavelength,widget_binning,widget_withnoise,widget_channels],sizing_mode=dfs.plot_sizing_mode)
 widgets = column(children=[widget_group_one,widget_group_two,widget_group_three],width=dfs.toolbar_width)
 inputs = row(children=[widgets,widget_tabs])
 

@@ -21,20 +21,31 @@ widget_headers = ["Telescope Mode", # 0
 					"Grating", # 7
 					"Days since/until new moon", # 8
 					"Pixel Binning", # 9
-					"Redshift", # 10
-					"Seeing", # 11
-					"Slit Width", # 12
-					"Exposure Time", # 13
-					"Spectral Range", # 14
+					"Redshift [z]", # 10
+					"Seeing [arcsec]", # 11
+					"Slit Width [arcsec]", # 12
+					"Exposure Time [s]", # 13
+					"Spectral Range [\u212b]", # 14
 					"Include Noise", # 15
 					"Active Channels"] # 16
 
-widget_names = ['widget_telescope','widget_object_type','widget_star_type',
-				'widget_galaxy_type','widget_mag_sys','widget_mag',
-				'widget_filter','widget_grating','widget_moon',
-				'widget_binning','widget_redshift','widget_seeing',
-				'widget_slit','widget_time','widget_wavelength',
-				'widget_withnoise','widget_channels'] # matched w/ header nums
+widget_names = ['widget_telescope',
+				'widget_object_type',
+				'widget_star_type',
+				'widget_galaxy_type',
+				'widget_mag_sys',
+				'widget_mag',
+				'widget_filter',
+				'widget_grating',
+				'widget_moon',
+				'widget_binning',
+				'widget_redshift',
+				'widget_seeing',
+				'widget_slit',
+				'widget_time',
+				'widget_wavelength',
+				'widget_withnoise',
+				'widget_channels'] # matched w/ header nums
 
 telescope_sizes = ["First light","Full Size"]
 object_types = ["Stellar","Galactic"]
